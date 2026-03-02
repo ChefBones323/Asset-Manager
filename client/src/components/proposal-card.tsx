@@ -1,0 +1,169 @@
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/status-badge";
+import { useToast } from "@/hooks/use-toast";
+import type { Job } from "@shared/schema";
+import {
+  CheckCircle,
+  XCircle,
+  FileText,
+  Clock,
+  AlertTriangle,
+  FolderPlus,
+  FolderEdit,
+  Timer,
+} from "lucide-react";
+
+export function ProposalCard({ job }: { job: Job }) {
+  const { toast } = useToast();
+
+  const approveMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/approve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job Approved", description: "Dispatched for execution." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to approve job.", variant: "destructive" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/reject`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job Rejected", description: "Proposal has been rejected." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reject job.", variant: "destructive" });
+    },
+  });
+
+  const impact = job.impactAnalysis as {
+    filesCreated: string[];
+    filesModified: string[];
+    destructiveChanges: boolean;
+    estimatedTimeSeconds: number;
+  } | null;
+
+  const plan = job.proposedPlan as string[] | null;
+  const isAwaitingApproval = job.status === "awaiting_approval";
+
+  return (
+    <Card data-testid={`card-job-${job.id}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <StatusBadge status={job.status} />
+              {impact?.destructiveChanges && (
+                <span className="inline-flex items-center gap-1 text-xs text-destructive font-medium">
+                  <AlertTriangle className="w-3 h-3" />
+                  Destructive
+                </span>
+              )}
+            </div>
+            <h3 className="font-medium text-sm leading-snug mt-2" data-testid={`text-intent-${job.id}`}>
+              {job.intent}
+            </h3>
+          </div>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {job.createdAt ? new Date(job.createdAt).toLocaleString() : ""}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {job.reasoningSummary && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reasoning</p>
+            <p className="text-sm text-foreground/80 leading-relaxed" data-testid={`text-reasoning-${job.id}`}>
+              {job.reasoningSummary}
+            </p>
+          </div>
+        )}
+
+        {plan && plan.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Execution Plan</p>
+            <ol className="space-y-1">
+              {plan.map((step, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="text-xs font-mono text-primary mt-0.5 shrink-0">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="text-foreground/80">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {impact && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Impact Analysis</p>
+            <div className="grid grid-cols-2 gap-2">
+              {impact.filesCreated.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <FolderPlus className="w-3.5 h-3.5 text-chart-2" />
+                  <span>{impact.filesCreated.length} file(s) created</span>
+                </div>
+              )}
+              {impact.filesModified.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <FolderEdit className="w-3.5 h-3.5 text-chart-4" />
+                  <span>{impact.filesModified.length} file(s) modified</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Timer className="w-3.5 h-3.5" />
+                <span>~{impact.estimatedTimeSeconds}s</span>
+              </div>
+            </div>
+            {(impact.filesCreated.length > 0 || impact.filesModified.length > 0) && (
+              <div className="bg-muted/50 rounded-md p-2.5 mt-1.5">
+                <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap" data-testid={`text-files-${job.id}`}>
+                  {[...impact.filesCreated.map((f) => `+ ${f}`), ...impact.filesModified.map((f) => `~ ${f}`)].join("\n")}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+
+        {job.logs && job.status !== "awaiting_approval" && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Execution Logs</p>
+            <div className="bg-background rounded-md p-3 max-h-40 overflow-y-auto">
+              <pre className="text-xs font-mono text-chart-2 whitespace-pre-wrap" data-testid={`text-logs-${job.id}`}>
+                {job.logs}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        {isAwaitingApproval && (
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              onClick={() => approveMutation.mutate()}
+              disabled={approveMutation.isPending}
+              size="sm"
+              data-testid={`button-approve-${job.id}`}
+            >
+              <CheckCircle className="w-3.5 h-3.5 mr-1" />
+              Approve & Dispatch
+            </Button>
+            <Button
+              onClick={() => rejectMutation.mutate()}
+              disabled={rejectMutation.isPending}
+              variant="destructive"
+              size="sm"
+              data-testid={`button-reject-${job.id}`}
+            >
+              <XCircle className="w-3.5 h-3.5 mr-1" />
+              Reject
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

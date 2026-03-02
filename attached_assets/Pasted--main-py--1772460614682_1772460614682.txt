@@ -1,0 +1,451 @@
+# =========================================================
+# main.py
+# =========================================================
+
+import os
+import uuid
+from datetime import datetime
+from functools import wraps
+from flask import (
+    Flask, render_template, request,
+    redirect, session, jsonify, flash
+)
+from dotenv import load_dotenv
+from models import db, Job, JobStatus
+
+# =========================================================
+# INVARIANTS (DO NOT REMOVE)
+# 1. Worker cannot approve jobs.
+# 2. Worker cannot transition non-Running states.
+# 3. Execution only occurs after human approval.
+# 4. No job skips Awaiting_Approval.
+# =========================================================
+
+load_dotenv()
+
+app = Flask(__name__)
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///cognitive_control_plane.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)
+
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+WORKER_TOKEN = os.getenv("WORKER_TOKEN")
+
+with app.app_context():
+    db.create_all()
+
+# =========================================================
+# AUTH
+# =========================================================
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("admin"):
+            return redirect("/login")
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if request.form.get("password") == ADMIN_PASSWORD:
+            session["admin"] = True
+            return redirect("/")
+        flash("Invalid password.")
+    return """
+    <form method="POST">
+        <input type="password" name="password" placeholder="Admin Password"/>
+        <button type="submit">Login</button>
+    </form>
+    """
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+# =========================================================
+# PROPOSAL BUILDER (Simulated Cognitive Engine)
+# =========================================================
+
+class ProposalBuilder:
+
+    def build(self, intent: str) -> dict:
+        intent_lower = intent.lower()
+
+        if "script" in intent_lower:
+            proposed_plan = [
+                "Create /Drafts directory if not exists",
+                "Generate structured 60s script in Markdown format",
+                "Save file as /Drafts/generated_script.md"
+            ]
+
+            impact_analysis = {
+                "files_created": ["/Drafts/generated_script.md"],
+                "files_modified": [],
+                "destructive_changes": False,
+                "estimated_time_seconds": 20
+            }
+
+            reasoning_summary = (
+                "Strategist: Identified script generation task. "
+                "Designer: Applied 60s pacing structure. "
+                "Systems: Non-destructive file creation."
+            )
+
+        else:
+            proposed_plan = [
+                "Create /Workspace/output.txt",
+                "Write structured result based on intent"
+            ]
+
+            impact_analysis = {
+                "files_created": ["/Workspace/output.txt"],
+                "files_modified": [],
+                "destructive_changes": False,
+                "estimated_time_seconds": 10
+            }
+
+            reasoning_summary = (
+                "General structured workflow generation. "
+                "No destructive operations proposed."
+            )
+
+        return {
+            "reasoning_summary": reasoning_summary,
+            "proposed_plan": proposed_plan,
+            "impact_analysis": impact_analysis
+        }
+
+proposal_builder = ProposalBuilder()
+
+# =========================================================
+# DASHBOARD
+# =========================================================
+
+@app.route("/")
+@admin_required
+def index():
+    jobs = Job.query.order_by(Job.created_at.desc()).all()
+    running_job = Job.query.filter_by(status=JobStatus.RUNNING).first()
+    return render_template("index.html", jobs=jobs, running_job=running_job)
+
+@app.route("/create", methods=["POST"])
+@admin_required
+def create_proposal():
+    intent = request.form.get("intent")
+    proposal = proposal_builder.build(intent)
+
+    job = Job(
+        id=str(uuid.uuid4()),
+        intent=intent,
+        status=JobStatus.AWAITING_APPROVAL,
+        reasoning_summary=proposal["reasoning_summary"],
+        proposed_plan=proposal["proposed_plan"],
+        impact_analysis=proposal["impact_analysis"],
+        logs=""
+    )
+
+    db.session.add(job)
+    db.session.commit()
+
+    return redirect("/")
+
+@app.route("/approve/<job_id>", methods=["POST"])
+@admin_required
+def approve(job_id):
+    job = Job.query.get(job_id)
+    job.status = JobStatus.APPROVED
+    job.approved_at = datetime.utcnow()
+    db.session.commit()
+    return redirect("/")
+
+@app.route("/reject/<job_id>", methods=["POST"])
+@admin_required
+def reject(job_id):
+    job = Job.query.get(job_id)
+    job.status = JobStatus.FAILED
+    db.session.commit()
+    return redirect("/")
+
+# =========================================================
+# WORKER AUTH
+# =========================================================
+
+def worker_auth():
+    token = request.headers.get("Authorization")
+    return token == f"Bearer {WORKER_TOKEN}"
+
+# =========================================================
+# WORKER POLL
+# =========================================================
+
+@app.route("/api/worker/next", methods=["GET"])
+def worker_next():
+    if not worker_auth():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    job = (
+        Job.query
+        .filter_by(status=JobStatus.APPROVED)
+        .order_by(Job.created_at.asc())
+        .first()
+    )
+
+    if not job:
+        return jsonify({"job": None})
+
+    job.status = JobStatus.RUNNING
+    db.session.commit()
+
+    return jsonify(job.to_dict())
+
+@app.route("/api/worker/update", methods=["POST"])
+def worker_update():
+    if not worker_auth():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+    job = Job.query.get(data.get("id"))
+
+    if not job:
+        return jsonify({"error": "Not found"}), 404
+
+    if job.status != JobStatus.RUNNING:
+        return jsonify({"error": "Invalid state transition"}), 400
+
+    job.logs = data.get("logs", job.logs)
+
+    new_status = data.get("status")
+    if new_status == "Completed":
+        job.status = JobStatus.COMPLETED
+        job.completed_at = datetime.utcnow()
+    elif new_status == "Failed":
+        job.status = JobStatus.FAILED
+        job.completed_at = datetime.utcnow()
+
+    db.session.commit()
+    return jsonify({"status": "updated"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=3000)
+
+
+
+# =========================================================
+# models.py
+# =========================================================
+
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+import enum
+
+db = SQLAlchemy()
+
+class JobStatus(enum.Enum):
+    DRAFT = "Draft"
+    AWAITING_APPROVAL = "Awaiting_Approval"
+    APPROVED = "Approved"
+    RUNNING = "Running"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+
+class Job(db.Model):
+    __tablename__ = "jobs"
+
+    id = db.Column(db.String, primary_key=True)
+    intent = db.Column(db.String, nullable=False)
+    status = db.Column(db.Enum(JobStatus), nullable=False)
+    reasoning_summary = db.Column(db.Text)
+    proposed_plan = db.Column(db.JSON)
+    impact_analysis = db.Column(db.JSON)
+    logs = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    approved_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "intent": self.intent,
+            "status": self.status.value,
+            "reasoning_summary": self.reasoning_summary,
+            "proposed_plan": self.proposed_plan,
+            "impact_analysis": self.impact_analysis
+        }
+
+
+
+# =========================================================
+# templates/index.html
+# =========================================================
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cognitive Control Plane</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 p-6">
+
+<div class="max-w-5xl mx-auto">
+
+<h1 class="text-3xl font-bold mb-6">Cognitive Control Plane</h1>
+
+<form method="POST" action="/create" class="mb-8">
+    <input name="intent"
+           class="w-full p-3 rounded bg-gray-800 border border-gray-700"
+           placeholder="Describe your high-level goal..."
+           required />
+    <button class="mt-3 px-4 py-2 bg-blue-600 rounded">
+        Generate Proposal
+    </button>
+</form>
+
+<h2 class="text-xl font-semibold mb-4">Awaiting Approval</h2>
+
+{% for job in jobs %}
+{% if job.status.value == "Awaiting_Approval" %}
+<div class="bg-gray-800 p-6 rounded mb-6 border border-gray-700">
+    <h3 class="text-lg font-bold mb-2">{{ job.intent }}</h3>
+    <p class="text-sm text-gray-400 mb-3">
+        {{ job.reasoning_summary }}
+    </p>
+    <ul class="list-disc ml-6 mb-3">
+        {% for step in job.proposed_plan %}
+        <li>{{ step }}</li>
+        {% endfor %}
+    </ul>
+    <pre class="bg-black p-3 text-sm overflow-x-auto">
+{{ job.impact_analysis | tojson(indent=2) }}
+    </pre>
+    <div class="mt-4 flex gap-4">
+        <form method="POST" action="/approve/{{ job.id }}">
+            <button class="px-4 py-2 bg-green-600 rounded">
+                Approve & Dispatch
+            </button>
+        </form>
+        <form method="POST" action="/reject/{{ job.id }}">
+            <button class="px-4 py-2 bg-red-600 rounded">
+                Reject
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<h2 class="text-xl font-semibold mt-10 mb-4">Live Execution Feed</h2>
+
+{% if running_job %}
+<div id="live-log"
+     class="bg-black p-4 rounded h-64 overflow-y-scroll text-green-400 text-sm">
+    {{ running_job.logs }}
+</div>
+{% else %}
+<p class="text-gray-500">No active running jobs.</p>
+{% endif %}
+
+</div>
+
+<script>
+setInterval(async () => {
+    const response = await fetch(window.location.href);
+    const text = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, "text/html");
+    const newLog = doc.querySelector("#live-log");
+    if (newLog && document.querySelector("#live-log")) {
+        document.querySelector("#live-log").innerHTML = newLog.innerHTML;
+    }
+}, 5000);
+</script>
+
+</body>
+</html>
+
+
+
+# =========================================================
+# ARCHITECTURE.md
+# =========================================================
+Cognitive Control Plane Constitution
+
+Human = Final authority  
+Replit = Planning + Approval  
+Mac Studio = Execution only  
+
+State Machine:
+Draft → Awaiting_Approval → Approved → Running → Completed/Failed  
+
+Worker cannot approve jobs.  
+Worker cannot alter non-Running states.  
+Execution requires explicit human approval.  
+Transparency is mandatory.
+
+
+
+# =========================================================
+# EXECUTION_CONTRACT.md
+# =========================================================
+Workers execute only structured manifests.
+
+Worker must:
+1. Validate plan structure.
+2. Log each execution step.
+3. Refuse malformed proposals.
+4. Only transition Running → Completed/Failed.
+
+No freeform execution logic.
+
+
+
+# =========================================================
+# PROPOSAL_SCHEMA.json
+# =========================================================
+{
+  "type": "object",
+  "required": ["intent", "reasoning_summary", "proposed_plan", "impact_analysis"],
+  "properties": {
+    "intent": { "type": "string" },
+    "reasoning_summary": { "type": "string" },
+    "proposed_plan": { "type": "array", "items": { "type": "string" } },
+    "impact_analysis": {
+      "type": "object",
+      "properties": {
+        "files_created": { "type": "array" },
+        "files_modified": { "type": "array" },
+        "destructive_changes": { "type": "boolean" },
+        "estimated_time_seconds": { "type": "number" }
+      }
+    }
+  }
+}
+
+
+
+# =========================================================
+# README.md
+# =========================================================
+
+Install:
+pip install flask flask_sqlalchemy python-dotenv
+
+Set Secrets in Replit:
+ADMIN_PASSWORD=your_password
+WORKER_TOKEN=your_worker_token
+SECRET_KEY=random_secret
+
+Run:
+python main.py
+
+Worker must include:
+Authorization: Bearer WORKER_TOKEN
+
+Execution only follows approval.
+Transparency is alignment.

@@ -1,0 +1,121 @@
+Good. From now on we fix via controlled, copy-paste execution blocks only.
+
+Below is the single Replit instruction block to stabilize your backend + worker flow without breaking the app.
+
+Copy everything between the lines and paste into Replit AI exactly as-is.
+
+⸻
+
+==================== REPLIT FIX BLOCK ====================
+
+You must make the following changes carefully without breaking existing routes or UI behavior.
+
+GOAL:
+	1.	Ensure /api/worker/next never blocks or hangs.
+	2.	Ensure it immediately returns { job: null } if no approved jobs exist.
+	3.	Ensure it atomically transitions APPROVED → RUNNING.
+	4.	Prevent any long-running DB waits.
+	5.	Add proper error handling so the route never times out.
+
+⸻
+
+STEP 1 — Open: server/routes.ts
+
+Find the /api/worker/next endpoint.
+
+Replace the entire handler with this implementation:
+
+router.get("/api/worker/next", async (req, res) => {
+  try {
+    const auth = req.headers.authorization;
+
+    if (!auth || auth !== `Bearer ${process.env.WORKER_TOKEN}`) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Find first approved job
+    const approvedJob = await db.query.jobs.findFirst({
+      where: (jobs, { eq }) => eq(jobs.status, "approved"),
+      orderBy: (jobs, { asc }) => asc(jobs.createdAt),
+    });
+
+    if (!approvedJob) {
+      return res.json({ job: null });
+    }
+
+    // Atomically mark as running
+    await db
+      .update(jobs)
+      .set({
+        status: "running",
+        startedAt: new Date(),
+      })
+      .where(eq(jobs.id, approvedJob.id));
+
+    return res.json({
+      job: {
+        ...approvedJob,
+        status: "running",
+      },
+    });
+  } catch (error) {
+    console.error("Worker next error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+IMPORTANT:
+	•	Do not introduce loops.
+	•	Do not await anything outside this handler.
+	•	Do not hold request open.
+
+⸻
+
+STEP 2 — Ensure Update Route Is Safe
+
+Find /api/worker/update.
+
+Wrap entire handler in try/catch like this:
+
+try {
+   // existing logic
+} catch (error) {
+   console.error("Worker update error:", error);
+   return res.status(500).json({ error: "Internal server error" });
+}
+
+
+⸻
+
+STEP 3 — Save and Restart Server
+
+Restart the Replit app completely.
+
+Confirm:
+	•	Visiting /api/worker/next without auth returns 401 instantly.
+	•	With correct Bearer token it returns quickly (<1s).
+
+⸻
+
+STEP 4 — DO NOT CHANGE:
+	•	UI
+	•	Auth system
+	•	Session logic
+	•	Database schema
+
+Only modify worker routes.
+
+⸻
+
+Expected Result:
+
+• Worker polling never times out
+• Approved jobs transition to running immediately
+• No blocking behavior
+• No cold-start induced hanging
+
+===========================================================
+
+After applying this, restart your Mac worker and test again.
+
+From now on, we operate only through structured deployment blocks like this.

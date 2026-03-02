@@ -123,34 +123,47 @@ export async function registerRoutes(
   });
 
   app.get("/api/worker/next", requireWorker, async (_req, res) => {
-    const currentlyRunning = await storage.getRunningJob();
-    if (currentlyRunning) {
-      return res.json({ job: null, reason: "A job is already running" });
+    try {
+      const currentlyRunning = await storage.getRunningJob();
+      if (currentlyRunning) {
+        return res.json({ job: null, reason: "A job is already running" });
+      }
+
+      const job = await storage.getNextApprovedJob();
+      if (!job) return res.json({ job: null });
+
+      const started = await storage.startJob(job.id);
+      return res.json({
+        ...started,
+        status: "running",
+      });
+    } catch (error) {
+      console.error("Worker next error:", error);
+      return res.status(500).json({ error: "Internal server error" });
     }
-
-    const job = await storage.getNextApprovedJob();
-    if (!job) return res.json({ job: null });
-
-    const started = await storage.startJob(job.id);
-    res.json(started);
   });
 
   app.post("/api/worker/update", requireWorker, async (req, res) => {
-    const { id, logs, status } = req.body;
-    if (!id) return res.status(400).json({ error: "Job ID required" });
+    try {
+      const { id, logs, status } = req.body;
+      if (!id) return res.status(400).json({ error: "Job ID required" });
 
-    const job = await storage.getJob(id);
-    if (!job) return res.status(404).json({ error: "Not found" });
-    if (job.status !== "running") {
-      return res.status(400).json({ error: "Invalid state transition" });
+      const job = await storage.getJob(id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+      if (job.status !== "running") {
+        return res.status(400).json({ error: "Invalid state transition" });
+      }
+
+      let newStatus: "completed" | "failed" | undefined;
+      if (status === "Completed") newStatus = "completed";
+      else if (status === "Failed") newStatus = "failed";
+
+      const updated = await storage.updateRunningJob(id, logs || job.logs, newStatus);
+      return res.json({ status: "updated", job: updated });
+    } catch (error) {
+      console.error("Worker update error:", error);
+      return res.status(500).json({ error: "Internal server error" });
     }
-
-    let newStatus: "completed" | "failed" | undefined;
-    if (status === "Completed") newStatus = "completed";
-    else if (status === "Failed") newStatus = "failed";
-
-    const updated = await storage.updateRunningJob(id, logs || job.logs, newStatus);
-    res.json({ status: "updated", job: updated });
   });
 
   return httpServer;

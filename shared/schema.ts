@@ -8,6 +8,8 @@ export const jobStatusEnum = pgEnum("job_status", [
   "awaiting_approval",
   "approved",
   "running",
+  "paused",
+  "escalated",
   "completed",
   "failed",
   "cancelled",

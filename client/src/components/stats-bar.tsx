@@ -1,5 +1,5 @@
 import type { Job } from "@shared/schema";
-import { Clock, CheckCircle, Play, XCircle, FileCheck, Layers, Ban } from "lucide-react";
+import { Clock, CheckCircle, Play, XCircle, FileCheck, Layers, Ban, Pause, ShieldAlert } from "lucide-react";
 
 export function StatsBar({ jobs }: { jobs: Job[] }) {
   const counts = {
@@ -7,6 +7,8 @@ export function StatsBar({ jobs }: { jobs: Job[] }) {
     awaiting: jobs.filter((j) => j.status === "awaiting_approval").length,
     approved: jobs.filter((j) => j.status === "approved").length,
     running: jobs.filter((j) => j.status === "running").length,
+    paused: jobs.filter((j) => j.status === "paused").length,
+    escalated: jobs.filter((j) => j.status === "escalated").length,
     completed: jobs.filter((j) => j.status === "completed").length,
     failed: jobs.filter((j) => j.status === "failed").length,
     cancelled: jobs.filter((j) => j.status === "cancelled").length,
@@ -17,13 +19,15 @@ export function StatsBar({ jobs }: { jobs: Job[] }) {
     { label: "Pending", value: counts.awaiting, icon: Clock, color: "text-chart-4" },
     { label: "Approved", value: counts.approved, icon: FileCheck, color: "text-primary" },
     { label: "Running", value: counts.running, icon: Play, color: "text-chart-2" },
+    { label: "Paused", value: counts.paused, icon: Pause, color: "text-yellow-500" },
+    { label: "Escalated", value: counts.escalated, icon: ShieldAlert, color: "text-orange-500" },
     { label: "Completed", value: counts.completed, icon: CheckCircle, color: "text-chart-2" },
     { label: "Failed", value: counts.failed, icon: XCircle, color: "text-destructive" },
     { label: "Cancelled", value: counts.cancelled, icon: Ban, color: "text-muted-foreground" },
   ];
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3" data-testid="container-stats">
+    <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-3" data-testid="container-stats">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (

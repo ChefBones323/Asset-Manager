@@ -122,6 +122,51 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.post("/api/jobs/:id/pause", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+      if (job.status !== "running") {
+        return res.status(400).json({ error: "Can only pause running jobs" });
+      }
+      const updated = await storage.pauseJob(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Pause job error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/jobs/:id/resume", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+      if (job.status !== "paused" && job.status !== "escalated") {
+        return res.status(400).json({ error: "Can only resume paused or escalated jobs" });
+      }
+      const updated = await storage.resumeJob(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Resume job error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/jobs/:id/escalate", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+      if (job.status !== "running") {
+        return res.status(400).json({ error: "Can only escalate running jobs" });
+      }
+      const updated = await storage.escalateJob(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Escalate job error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/jobs/:id/cancel", requireAdmin, async (req, res) => {
     try {
       const job = await storage.getJob(req.params.id);
@@ -131,8 +176,8 @@ export async function registerRoutes(
         return res.json(job);
       }
 
-      if (job.status !== "running" && job.status !== "approved") {
-        return res.status(400).json({ error: "Can only cancel approved or running jobs" });
+      if (job.status !== "running" && job.status !== "approved" && job.status !== "paused" && job.status !== "escalated") {
+        return res.status(400).json({ error: "Can only cancel active jobs" });
       }
 
       const updated = await storage.cancelJob(req.params.id);
@@ -199,14 +244,29 @@ export async function registerRoutes(
 
       const job = await storage.getJob(id);
       if (!job) return res.status(404).json({ error: "Not found" });
-      if (job.status !== "running" && job.status !== "cancelled") {
+      if (job.status !== "running" && job.status !== "cancelled" && job.status !== "paused" && job.status !== "escalated") {
         return res.status(400).json({ error: "Invalid state transition" });
       }
 
-      let newStatus: "completed" | "failed" | "cancelled" | undefined;
+      let newStatus: "completed" | "failed" | "cancelled" | "escalated" | undefined;
       if (status === "Completed") newStatus = "completed";
       else if (status === "Failed") newStatus = "failed";
       else if (status === "Cancelled") newStatus = "cancelled";
+      else if (status === "Escalated") newStatus = "escalated";
+
+      if (!newStatus && job.status === "running" && job.approvedAt) {
+        const impact = job.impactAnalysis as { estimatedTimeSeconds?: number } | null;
+        if (impact?.estimatedTimeSeconds) {
+          const elapsedMs = Date.now() - new Date(job.approvedAt).getTime();
+          const thresholdMs = impact.estimatedTimeSeconds * 2 * 1000;
+          if (elapsedMs > thresholdMs) {
+            newStatus = "escalated";
+            const escalationLog = (logs || job.logs || "") + "\nExecution time exceeded safety threshold. Escalated automatically.";
+            const updated = await storage.updateRunningJob(id, escalationLog, newStatus);
+            return res.json({ status: "updated", job: updated, autoEscalated: true });
+          }
+        }
+      }
 
       const updated = await storage.updateRunningJob(id, logs || job.logs, newStatus);
       return res.json({ status: "updated", job: updated });

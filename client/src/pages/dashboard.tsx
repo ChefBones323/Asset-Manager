@@ -62,6 +62,8 @@ export default function DashboardPage() {
   const awaitingJobs = jobs.filter((j) => j.status === "awaiting_approval");
   const approvedJobs = jobs.filter((j) => j.status === "approved");
   const runningJob = jobs.find((j) => j.status === "running") || null;
+  const pausedJobs = jobs.filter((j) => j.status === "paused");
+  const escalatedJobs = jobs.filter((j) => j.status === "escalated");
   const completedJobs = jobs.filter((j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled");
 
   return (
@@ -181,6 +183,14 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="governance" data-testid="tab-governance">
+                  Governance
+                  {(pausedJobs.length + escalatedJobs.length) > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 text-xs font-medium">
+                      {pausedJobs.length + escalatedJobs.length}
+                    </span>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="history" data-testid="tab-history">
                   History
                 </TabsTrigger>
@@ -202,6 +212,14 @@ export default function DashboardPage() {
                   <EmptyState message="No jobs in the execution queue" />
                 ) : (
                   approvedJobs.map((job) => <ProposalCard key={job.id} job={job} />)
+                )}
+              </TabsContent>
+
+              <TabsContent value="governance" className="space-y-3">
+                {pausedJobs.length === 0 && escalatedJobs.length === 0 ? (
+                  <EmptyState message="No paused or escalated jobs requiring attention" />
+                ) : (
+                  [...escalatedJobs, ...pausedJobs].map((job) => <ProposalCard key={job.id} job={job} />)
                 )}
               </TabsContent>
 

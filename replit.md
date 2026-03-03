@@ -7,13 +7,17 @@ A human-supervised AI execution control plane with approval workflows and transp
 - **Frontend**: React + TypeScript with Vite, TailwindCSS, shadcn/ui components
 - **Backend**: Express.js with session-based authentication
 - **Database**: PostgreSQL with Drizzle ORM
-- **State Machine**: Draft -> Awaiting_Approval -> Approved -> Running -> Completed/Failed/Cancelled
+- **State Machine**: Draft -> Awaiting_Approval -> Approved -> Running -> Paused/Escalated/Completed/Failed/Cancelled
+- **Governance Level**: Level 3 — Human pause, resume, escalation, cancel with cooperative worker model
 
 ## Key Invariants
 1. Worker cannot approve jobs
 2. Worker cannot transition non-Running states
 3. Execution only occurs after human approval
 4. No job skips Awaiting_Approval
+5. Pause only from Running, Resume only from Paused/Escalated
+6. Worker cooperatively checks status after each step (pause polling, escalation exit, cancel exit)
+7. Automatic escalation if execution exceeds 2x estimatedTimeSeconds
 
 ## Key Files
 - `shared/schema.ts` - Database schema and types (jobs table with status enum)
@@ -39,11 +43,14 @@ A human-supervised AI execution control plane with approval workflows and transp
 - `POST /api/jobs` - Create new proposal (admin)
 - `POST /api/jobs/:id/approve` - Approve job (admin)
 - `POST /api/jobs/:id/reject` - Reject job (admin)
-- `POST /api/jobs/:id/cancel` - Cancel running/approved job (admin)
-- `POST /api/jobs/:id/delete` - Delete completed/failed/cancelled job (admin)
+- `POST /api/jobs/:id/pause` - Pause running job (admin)
+- `POST /api/jobs/:id/resume` - Resume paused/escalated job (admin)
+- `POST /api/jobs/:id/escalate` - Escalate running job for review (admin)
+- `POST /api/jobs/:id/cancel` - Cancel active job (admin)
+- `POST /api/jobs/:id/delete` - Delete terminal-state job (admin)
 - `GET /api/jobs/:id/status` - Check job status (worker, Bearer token)
 - `GET /api/worker/next` - Poll for next approved job (worker, Bearer token)
-- `POST /api/worker/update` - Update running job status/logs (worker, Bearer token, accepts Cancelled status)
+- `POST /api/worker/update` - Update job status/logs (worker, Bearer token, accepts Completed/Failed/Cancelled/Escalated)
 
 ## Environment Secrets
 - `ADMIN_PASSWORD` - Admin login password

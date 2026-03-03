@@ -1,0 +1,226 @@
+TASK: Upgrade the current Cancel implementation into a full Level 3 Governance Layer.
+
+CRITICAL CONSTRAINTS:
+- DO NOT refactor working architecture.
+- DO NOT rename existing endpoints.
+- DO NOT remove existing status values.
+- DO NOT change authentication logic.
+- DO NOT alter session handling.
+- DO NOT introduce new dependencies.
+- DO NOT rewrite database structure.
+- Only extend status enum and add minimal endpoints.
+- App must compile and run immediately after changes.
+
+The system currently supports:
+- pending
+- approved
+- running
+- completed
+- failed
+- cancelled
+
+We will extend it to true Level 3 Governance.
+
+--------------------------------------------
+PHASE 1 — Extend Status Model (SAFE ENUM ADD)
+--------------------------------------------
+
+Add two new status values:
+
+"paused"
+"escalated"
+
+DO NOT remove existing statuses.
+DO NOT change table structure.
+Only extend enum safely.
+
+Final allowed statuses:
+
+pending
+approved
+running
+paused
+escalated
+cancelled
+completed
+failed
+
+--------------------------------------------
+PHASE 2 — Add Governance Endpoints
+--------------------------------------------
+
+Add these new endpoints in server/routes.ts:
+
+POST /api/jobs/:id/pause
+POST /api/jobs/:id/resume
+POST /api/jobs/:id/escalate
+
+Rules:
+
+PAUSE:
+- Allowed only if status === "running"
+- Transition to "paused"
+
+RESUME:
+- Allowed only if status === "paused"
+- Transition back to "running"
+
+ESCALATE:
+- Allowed if status === "running"
+- Transition to "escalated"
+
+All endpoints:
+- Wrap in try/catch
+- Return clean JSON
+- Must not affect other jobs
+- Must require admin session auth (same as cancel)
+- Do NOT modify worker routes
+
+--------------------------------------------
+PHASE 3 — Upgrade Worker Cooperative Model
+--------------------------------------------
+
+Worker already checks:
+
+GET /api/jobs/:id/status
+
+Enhance behavior WITHOUT rewriting loop logic.
+
+Modify worker execution loop:
+
+After EACH step execution:
+
+1. Call GET /api/jobs/:id/status
+2. If status === "paused":
+      - Append log: "Execution paused by operator"
+      - Enter polling wait loop (sleep + recheck every POLL_INTERVAL)
+      - Do NOT terminate
+      - Resume only when status becomes "running"
+3. If status === "escalated":
+      - Append log: "Execution escalated for review"
+      - POST final update with status="Escalated"
+      - Exit execution cleanly
+4. If status === "cancelled":
+      - Append log: "Execution cancelled by operator"
+      - POST final update with status="Cancelled"
+      - Exit execution cleanly
+5. Continue normally if status === "running"
+
+DO NOT:
+- Change poll interval
+- Change logging structure
+- Change update endpoint format
+- Change authentication
+- Add background threads
+
+This must remain deterministic and cooperative.
+
+--------------------------------------------
+PHASE 4 — Governance UI Integration
+--------------------------------------------
+
+Modify Proposal Card UI:
+
+When status === "running":
+    Show buttons:
+        Pause
+        Escalate
+        Cancel
+
+When status === "paused":
+    Show buttons:
+        Resume
+        Cancel
+
+When status === "escalated":
+    Show buttons:
+        Resume (sets to running)
+        Cancel
+
+When status === completed / failed / cancelled:
+    Show Delete (existing behavior)
+
+Use existing button styling.
+Do NOT redesign layout.
+Only extend action row.
+
+--------------------------------------------
+PHASE 5 — Status Badge Enhancements
+--------------------------------------------
+
+Extend status-badge component:
+
+paused → yellow/amber with Pause icon
+escalated → orange with Alert icon
+
+Do NOT remove existing badge styles.
+
+--------------------------------------------
+PHASE 6 — Governance Safety Logic
+--------------------------------------------
+
+Add lightweight automatic escalation logic:
+
+Inside worker:
+
+If execution time exceeds:
+   impactAnalysis.estimatedTimeSeconds × 2
+
+Then:
+   POST update with status="Escalated"
+   Append log:
+   "Execution time exceeded safety threshold. Escalated automatically."
+
+This introduces Level 3 guardrail.
+
+DO NOT add complex heuristics.
+Keep deterministic.
+
+--------------------------------------------
+PHASE 7 — Stats Bar Update
+--------------------------------------------
+
+Add counts for:
+- Paused
+- Escalated
+
+Update grid layout accordingly.
+Do NOT change other stats behavior.
+
+--------------------------------------------
+DO NOT:
+--------------------------------------------
+
+- Do NOT auto-delete logs.
+- Do NOT auto-cancel jobs.
+- Do NOT allow destructive operations without approval.
+- Do NOT modify worker authentication.
+- Do NOT refactor database structure.
+- Do NOT introduce breaking changes.
+
+--------------------------------------------
+EXPECTED RESULT
+--------------------------------------------
+
+System now supports:
+
+• Human Pause
+• Human Resume
+• Human Escalation
+• Human Cancel
+• Worker cooperative governance
+• Automatic time-based escalation
+• Deterministic Level 3 control
+• Full transparency in logs
+• No destructive autonomy
+
+App must:
+- Compile immediately
+- Deploy cleanly
+- Preserve all existing functionality
+
+After implementation:
+- Restart dev server
+- Confirm governance buttons render correctly
+- Confirm worker pauses/resumes correctly
+- Confirm escalation stops execution safely

@@ -14,6 +14,9 @@ import {
   Timer,
   Ban,
   Trash2,
+  Pause,
+  Play,
+  ShieldAlert,
 } from "lucide-react";
 
 export function ProposalCard({ job }: { job: Job }) {
@@ -60,6 +63,39 @@ export function ProposalCard({ job }: { job: Job }) {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
+    },
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/pause`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job Paused", description: "Execution has been paused." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to pause job.", variant: "destructive" });
+    },
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/resume`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job Resumed", description: "Execution has been resumed." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to resume job.", variant: "destructive" });
+    },
+  });
+
+  const escalateMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/escalate`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job Escalated", description: "Job has been escalated for review." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to escalate job.", variant: "destructive" });
     },
   });
 
@@ -186,7 +222,90 @@ export function ProposalCard({ job }: { job: Job }) {
           </div>
         )}
 
-        {(job.status === "running" || job.status === "approved") && !isAwaitingApproval && (
+        {job.status === "running" && (
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              onClick={() => pauseMutation.mutate()}
+              disabled={pauseMutation.isPending}
+              variant="secondary"
+              size="sm"
+              data-testid={`button-pause-${job.id}`}
+            >
+              <Pause className="w-3.5 h-3.5 mr-1" />
+              Pause
+            </Button>
+            <Button
+              onClick={() => escalateMutation.mutate()}
+              disabled={escalateMutation.isPending}
+              variant="outline"
+              size="sm"
+              data-testid={`button-escalate-${job.id}`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5 mr-1" />
+              Escalate
+            </Button>
+            <Button
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+              variant="destructive"
+              size="sm"
+              data-testid={`button-cancel-${job.id}`}
+            >
+              <Ban className="w-3.5 h-3.5 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {job.status === "paused" && (
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              onClick={() => resumeMutation.mutate()}
+              disabled={resumeMutation.isPending}
+              size="sm"
+              data-testid={`button-resume-${job.id}`}
+            >
+              <Play className="w-3.5 h-3.5 mr-1" />
+              Resume
+            </Button>
+            <Button
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+              variant="destructive"
+              size="sm"
+              data-testid={`button-cancel-${job.id}`}
+            >
+              <Ban className="w-3.5 h-3.5 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {job.status === "escalated" && (
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              onClick={() => resumeMutation.mutate()}
+              disabled={resumeMutation.isPending}
+              size="sm"
+              data-testid={`button-resume-${job.id}`}
+            >
+              <Play className="w-3.5 h-3.5 mr-1" />
+              Resume
+            </Button>
+            <Button
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+              variant="destructive"
+              size="sm"
+              data-testid={`button-cancel-${job.id}`}
+            >
+              <Ban className="w-3.5 h-3.5 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {job.status === "approved" && (
           <div className="flex items-center gap-2 pt-1">
             <Button
               onClick={() => cancelMutation.mutate()}

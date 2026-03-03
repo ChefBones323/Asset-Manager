@@ -20,9 +20,12 @@ export interface IStorage {
   rejectJob(id: string): Promise<Job | undefined>;
   getNextApprovedJob(): Promise<Job | undefined>;
   startJob(id: string): Promise<Job | undefined>;
-  updateRunningJob(id: string, logs: string, status?: "completed" | "failed" | "cancelled"): Promise<Job | undefined>;
+  updateRunningJob(id: string, logs: string, status?: "completed" | "failed" | "cancelled" | "escalated"): Promise<Job | undefined>;
   getRunningJob(): Promise<Job | undefined>;
   cancelJob(id: string): Promise<Job | undefined>;
+  pauseJob(id: string): Promise<Job | undefined>;
+  resumeJob(id: string): Promise<Job | undefined>;
+  escalateJob(id: string): Promise<Job | undefined>;
   deleteJob(id: string): Promise<boolean>;
 }
 
@@ -90,7 +93,7 @@ export class DatabaseStorage implements IStorage {
     return job;
   }
 
-  async updateRunningJob(id: string, logs: string, status?: "completed" | "failed" | "cancelled"): Promise<Job | undefined> {
+  async updateRunningJob(id: string, logs: string, status?: "completed" | "failed" | "cancelled" | "escalated"): Promise<Job | undefined> {
     const updates: Record<string, any> = { logs };
     if (status) {
       updates.status = status;
@@ -113,6 +116,30 @@ export class DatabaseStorage implements IStorage {
   async cancelJob(id: string): Promise<Job | undefined> {
     const [job] = await db.update(jobs)
       .set({ status: "cancelled", completedAt: new Date() })
+      .where(eq(jobs.id, id))
+      .returning();
+    return job;
+  }
+
+  async pauseJob(id: string): Promise<Job | undefined> {
+    const [job] = await db.update(jobs)
+      .set({ status: "paused" })
+      .where(eq(jobs.id, id))
+      .returning();
+    return job;
+  }
+
+  async resumeJob(id: string): Promise<Job | undefined> {
+    const [job] = await db.update(jobs)
+      .set({ status: "running" })
+      .where(eq(jobs.id, id))
+      .returning();
+    return job;
+  }
+
+  async escalateJob(id: string): Promise<Job | undefined> {
+    const [job] = await db.update(jobs)
+      .set({ status: "escalated" })
       .where(eq(jobs.id, id))
       .returning();
     return job;

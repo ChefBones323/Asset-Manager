@@ -31,6 +31,10 @@ export const jobs = pgTable("jobs", {
   createdAt: timestamp("created_at").defaultNow(),
   approvedAt: timestamp("approved_at"),
   completedAt: timestamp("completed_at"),
+  workerId: text("worker_id"),
+  leaseExpiresAt: timestamp("lease_expires_at"),
+  lastHeartbeatAt: timestamp("last_heartbeat_at"),
+  destructiveApprovedAt: timestamp("destructive_approved_at"),
 });
 
 export const insertJobSchema = createInsertSchema(jobs).pick({

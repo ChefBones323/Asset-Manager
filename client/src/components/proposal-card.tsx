@@ -99,6 +99,17 @@ export function ProposalCard({ job }: { job: Job }) {
     },
   });
 
+  const approveDestructiveMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/approve-destructive`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Destructive Approved", description: "Destructive execution has been authorized." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to approve destructive execution.", variant: "destructive" });
+    },
+  });
+
   const impact = job.impactAnalysis as {
     filesCreated: string[];
     filesModified: string[];
@@ -108,6 +119,7 @@ export function ProposalCard({ job }: { job: Job }) {
 
   const plan = job.proposedPlan as string[] | null;
   const isAwaitingApproval = job.status === "awaiting_approval";
+  const needsDestructiveApproval = impact?.destructiveChanges && !job.destructiveApprovedAt;
 
   return (
     <Card data-testid={`card-job-${job.id}`}>
@@ -119,7 +131,7 @@ export function ProposalCard({ job }: { job: Job }) {
               {impact?.destructiveChanges && (
                 <span className="inline-flex items-center gap-1 text-xs text-destructive font-medium">
                   <AlertTriangle className="w-3 h-3" />
-                  Destructive
+                  {job.destructiveApprovedAt ? "Destructive (Approved)" : "Destructive"}
                 </span>
               )}
             </div>
@@ -183,6 +195,19 @@ export function ProposalCard({ job }: { job: Job }) {
                   {[...impact.filesCreated.map((f) => `+ ${f}`), ...impact.filesModified.map((f) => `~ ${f}`)].join("\n")}
                 </pre>
               </div>
+            )}
+          </div>
+        )}
+
+        {job.workerId && (job.status === "running" || job.status === "paused" || job.status === "escalated") && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <span className="font-medium">Worker:</span> {job.workerId}
+            </span>
+            {job.leaseExpiresAt && (
+              <span className="inline-flex items-center gap-1">
+                <span className="font-medium">Lease:</span> {new Date(job.leaseExpiresAt).toLocaleTimeString()}
+              </span>
             )}
           </div>
         )}
@@ -283,6 +308,19 @@ export function ProposalCard({ job }: { job: Job }) {
 
         {job.status === "escalated" && (
           <div className="flex items-center gap-2 pt-1">
+            {needsDestructiveApproval && (
+              <Button
+                onClick={() => approveDestructiveMutation.mutate()}
+                disabled={approveDestructiveMutation.isPending}
+                variant="outline"
+                size="sm"
+                className="border-orange-500/50 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10"
+                data-testid={`button-approve-destructive-${job.id}`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5 mr-1" />
+                Approve Destructive
+              </Button>
+            )}
             <Button
               onClick={() => resumeMutation.mutate()}
               disabled={resumeMutation.isPending}

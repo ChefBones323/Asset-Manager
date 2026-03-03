@@ -1,0 +1,182 @@
+TASK: Upgrade the existing Level 3 Governance Layer to include autonomous worker lease management, heartbeat monitoring, runaway detection, and safe destructive gating.
+
+CRITICAL CONSTRAINTS:
+- DO NOT rename any existing routes.
+- DO NOT modify authentication/session logic.
+- DO NOT change existing enum values.
+- DO NOT remove or refactor current endpoints.
+- DO NOT break worker compatibility.
+- All changes must be additive and backward-compatible.
+- App must compile and run immediately after changes.
+
+We are extending governance — not rewriting architecture.
+
+------------------------------------------------------------
+PHASE 1 — Schema Extensions (Additive Only)
+------------------------------------------------------------
+
+Extend the existing jobs table with the following nullable columns:
+
+- workerId (text, nullable)
+- leaseExpiresAt (timestamp, nullable)
+- lastHeartbeatAt (timestamp, nullable)
+- destructiveApprovedAt (timestamp, nullable)
+
+DO NOT modify existing enum definitions.
+DO NOT remove fields.
+Use safe ALTER TABLE statements.
+Ensure Drizzle schema reflects these additions.
+
+------------------------------------------------------------
+PHASE 2 — Lease Assignment on Worker Claim
+------------------------------------------------------------
+
+Modify GET /api/worker/next:
+
+When assigning a job:
+- status must transition to "running"
+- set workerId to requesting worker
+- set lastHeartbeatAt = now()
+- set leaseExpiresAt = now() + 30 seconds
+
+If a running job exists:
+- If leaseExpiresAt > now(): return { job: null }
+- If leaseExpiresAt <= now(): auto-escalate that job first
+
+Escalation logic:
+- status = "escalated"
+- append log: "Lease expired. Worker presumed dead."
+- completedAt = now()
+
+Then proceed normally.
+
+------------------------------------------------------------
+PHASE 3 — Heartbeat Endpoint
+------------------------------------------------------------
+
+Add new endpoint:
+
+POST /api/worker/heartbeat
+
+Auth:
+- Bearer WORKER_TOKEN
+
+Body:
+{
+  jobId: string,
+  workerId: string
+}
+
+Behavior:
+- Validate job exists
+- Validate job.workerId matches
+- Validate status === "running"
+- Update:
+    lastHeartbeatAt = now()
+    leaseExpiresAt = now() + 30 seconds
+
+Return:
+{ ok: true }
+
+No other side effects.
+
+------------------------------------------------------------
+PHASE 4 — Autonomous Lease Watchdog
+------------------------------------------------------------
+
+In server startup, add a background interval:
+
+Every 5 seconds:
+- Find jobs where:
+    status === "running"
+    AND leaseExpiresAt IS NOT NULL
+    AND leaseExpiresAt < now()
+
+For each:
+- status = "escalated"
+- append log:
+    "[WATCHDOG] Lease expired. Execution halted automatically."
+- completedAt = now()
+
+This must run independently of worker updates.
+
+------------------------------------------------------------
+PHASE 5 — Independent Runaway Detection
+------------------------------------------------------------
+
+Inside the same watchdog loop:
+
+If:
+- status === "running"
+- approvedAt exists
+- estimatedTimeSeconds exists
+- now() - approvedAt > estimatedTimeSeconds * 2
+
+Then:
+- status = "escalated"
+- append log:
+    "[WATCHDOG] Execution exceeded safety threshold. Escalated."
+
+This must NOT depend on worker posting updates.
+
+------------------------------------------------------------
+PHASE 6 — Safe Destructive Gating
+------------------------------------------------------------
+
+Before worker execution begins (inside worker/next logic):
+
+If:
+- job.impactAnalysis?.destructiveChanges === true
+- AND destructiveApprovedAt IS NULL
+
+Then:
+- DO NOT assign job
+- status = "escalated"
+- append log:
+    "Destructive execution requires explicit destructive approval."
+- completedAt = now()
+
+Add new endpoint:
+
+POST /api/jobs/:id/approve-destructive
+
+Admin-authenticated only.
+
+Behavior:
+- Set destructiveApprovedAt = now()
+- Return updated job
+
+DO NOT modify existing approve endpoint.
+
+------------------------------------------------------------
+PHASE 7 — Worker Update Safeguards
+------------------------------------------------------------
+
+Modify POST /api/worker/update:
+
+- Reject updates if workerId mismatch
+- Reject updates if lease expired
+- Allow status transitions:
+    Completed
+    Failed
+    Cancelled
+    Escalated
+
+Append logs safely — never overwrite.
+
+------------------------------------------------------------
+FINAL VALIDATION REQUIREMENTS
+------------------------------------------------------------
+
+After implementing:
+
+1. App must compile cleanly.
+2. Existing Cancel/Pause/Resume/Escalate features must still work.
+3. Existing worker flow must not break.
+4. No route names changed.
+5. No enum values removed.
+6. No auth/session changes.
+
+This is a governance hardening upgrade — not a refactor.
+
+Implement carefully and verify app runs without errors.

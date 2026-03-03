@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { jobs, type Job, type InsertJob } from "@shared/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and, lt, isNotNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -19,7 +19,7 @@ export interface IStorage {
   approveJob(id: string): Promise<Job | undefined>;
   rejectJob(id: string): Promise<Job | undefined>;
   getNextApprovedJob(): Promise<Job | undefined>;
-  startJob(id: string): Promise<Job | undefined>;
+  startJob(id: string, workerId: string): Promise<Job | undefined>;
   updateRunningJob(id: string, logs: string, status?: "completed" | "failed" | "cancelled" | "escalated"): Promise<Job | undefined>;
   getRunningJob(): Promise<Job | undefined>;
   cancelJob(id: string): Promise<Job | undefined>;
@@ -27,6 +27,10 @@ export interface IStorage {
   resumeJob(id: string): Promise<Job | undefined>;
   escalateJob(id: string): Promise<Job | undefined>;
   deleteJob(id: string): Promise<boolean>;
+  renewLease(id: string): Promise<Job | undefined>;
+  getExpiredLeaseJobs(): Promise<Job[]>;
+  getRunawayJobs(): Promise<Job[]>;
+  approveDestructive(id: string): Promise<Job | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -85,9 +89,16 @@ export class DatabaseStorage implements IStorage {
     return job;
   }
 
-  async startJob(id: string): Promise<Job | undefined> {
+  async startJob(id: string, workerId: string): Promise<Job | undefined> {
+    const now = new Date();
+    const leaseExpiry = new Date(now.getTime() + 30000);
     const [job] = await db.update(jobs)
-      .set({ status: "running" })
+      .set({
+        status: "running",
+        workerId,
+        lastHeartbeatAt: now,
+        leaseExpiresAt: leaseExpiry,
+      })
       .where(eq(jobs.id, id))
       .returning();
     return job;
@@ -130,8 +141,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async resumeJob(id: string): Promise<Job | undefined> {
+    const now = new Date();
+    const leaseExpiry = new Date(now.getTime() + 30000);
     const [job] = await db.update(jobs)
-      .set({ status: "running" })
+      .set({ status: "running", lastHeartbeatAt: now, leaseExpiresAt: leaseExpiry })
       .where(eq(jobs.id, id))
       .returning();
     return job;
@@ -146,8 +159,47 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteJob(id: string): Promise<boolean> {
-    const result = await db.delete(jobs).where(eq(jobs.id, id));
+    await db.delete(jobs).where(eq(jobs.id, id));
     return true;
+  }
+
+  async renewLease(id: string): Promise<Job | undefined> {
+    const now = new Date();
+    const leaseExpiry = new Date(now.getTime() + 30000);
+    const [job] = await db.update(jobs)
+      .set({ lastHeartbeatAt: now, leaseExpiresAt: leaseExpiry })
+      .where(eq(jobs.id, id))
+      .returning();
+    return job;
+  }
+
+  async getExpiredLeaseJobs(): Promise<Job[]> {
+    return db.select().from(jobs)
+      .where(
+        and(
+          eq(jobs.status, "running"),
+          isNotNull(jobs.leaseExpiresAt),
+          lt(jobs.leaseExpiresAt, new Date())
+        )
+      );
+  }
+
+  async getRunawayJobs(): Promise<Job[]> {
+    return db.select().from(jobs)
+      .where(
+        and(
+          eq(jobs.status, "running"),
+          isNotNull(jobs.approvedAt)
+        )
+      );
+  }
+
+  async approveDestructive(id: string): Promise<Job | undefined> {
+    const [job] = await db.update(jobs)
+      .set({ destructiveApprovedAt: new Date() })
+      .where(eq(jobs.id, id))
+      .returning();
+    return job;
   }
 }
 

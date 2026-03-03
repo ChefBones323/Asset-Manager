@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { JobStatus } from "@shared/schema";
-import { Clock, CheckCircle, Play, XCircle, FileCheck, FileText } from "lucide-react";
+import { Clock, CheckCircle, Play, XCircle, FileCheck, FileText, Ban } from "lucide-react";
 
 const statusConfig: Record<
   string,
@@ -12,6 +12,7 @@ const statusConfig: Record<
   running: { label: "Running", variant: "default", icon: Play },
   completed: { label: "Completed", variant: "secondary", icon: CheckCircle },
   failed: { label: "Failed", variant: "destructive", icon: XCircle },
+  cancelled: { label: "Cancelled", variant: "outline", icon: Ban },
 };
 
 export function StatusBadge({ status }: { status: JobStatus | null }) {

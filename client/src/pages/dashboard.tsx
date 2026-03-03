@@ -62,7 +62,7 @@ export default function DashboardPage() {
   const awaitingJobs = jobs.filter((j) => j.status === "awaiting_approval");
   const approvedJobs = jobs.filter((j) => j.status === "approved");
   const runningJob = jobs.find((j) => j.status === "running") || null;
-  const completedJobs = jobs.filter((j) => j.status === "completed" || j.status === "failed");
+  const completedJobs = jobs.filter((j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled");
 
   return (
     <div className="min-h-screen bg-background">

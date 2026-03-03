@@ -7,7 +7,7 @@ A human-supervised AI execution control plane with approval workflows and transp
 - **Frontend**: React + TypeScript with Vite, TailwindCSS, shadcn/ui components
 - **Backend**: Express.js with session-based authentication
 - **Database**: PostgreSQL with Drizzle ORM
-- **State Machine**: Draft -> Awaiting_Approval -> Approved -> Running -> Completed/Failed
+- **State Machine**: Draft -> Awaiting_Approval -> Approved -> Running -> Completed/Failed/Cancelled
 
 ## Key Invariants
 1. Worker cannot approve jobs
@@ -39,8 +39,11 @@ A human-supervised AI execution control plane with approval workflows and transp
 - `POST /api/jobs` - Create new proposal (admin)
 - `POST /api/jobs/:id/approve` - Approve job (admin)
 - `POST /api/jobs/:id/reject` - Reject job (admin)
+- `POST /api/jobs/:id/cancel` - Cancel running/approved job (admin)
+- `POST /api/jobs/:id/delete` - Delete completed/failed/cancelled job (admin)
+- `GET /api/jobs/:id/status` - Check job status (worker, Bearer token)
 - `GET /api/worker/next` - Poll for next approved job (worker, Bearer token)
-- `POST /api/worker/update` - Update running job status/logs (worker, Bearer token)
+- `POST /api/worker/update` - Update running job status/logs (worker, Bearer token, accepts Cancelled status)
 
 ## Environment Secrets
 - `ADMIN_PASSWORD` - Admin login password

@@ -1,0 +1,140 @@
+Task: Add safe job cancellation + deletion support to the existing Control Plane WITHOUT breaking current behavior.
+
+IMPORTANT CONSTRAINTS:
+- Do NOT rename existing routes.
+- Do NOT modify authentication logic.
+- Do NOT change database schema structure beyond adding a new allowed status value.
+- Do NOT refactor existing endpoints unless required.
+- Do NOT rewrite working code.
+- Maintain current behavior of:
+  - /api/worker/next
+  - /api/worker/update
+  - Admin login
+  - Proposal approval
+- Preserve session handling and proxy settings.
+- App must compile and run immediately after changes.
+
+------------------------------------
+PHASE 1 — Backend: Add Cancel Support
+------------------------------------
+
+1. Extend job status enum to include:
+   "cancelled"
+
+   Do NOT remove any existing status values.
+
+2. Add new endpoint:
+
+   POST /api/jobs/:id/cancel
+
+   Behavior:
+   - If job status is "running" or "approved":
+       - Set status to "cancelled"
+       - Set completedAt = new Date()
+   - If already completed/failed/cancelled:
+       - Return 200 with no change
+   - Wrap in try/catch
+   - Return clean JSON
+   - Do NOT affect other jobs
+
+3. Add lightweight status endpoint for worker checks:
+
+   GET /api/jobs/:id/status
+
+   Returns:
+   {
+     id,
+     status
+   }
+
+   Must not expose secrets.
+   Must be authenticated via WORKER_TOKEN header.
+
+------------------------------------
+PHASE 2 — Worker Safety Enhancement
+------------------------------------
+
+Modify worker polling logic to support cooperative cancellation.
+
+Inside worker execution loop:
+- After each step in proposed_plan:
+  - Call GET /api/jobs/:id/status
+  - If status === "cancelled":
+        - Append log: "Job cancelled by operator"
+        - POST final update with status="Cancelled"
+        - Stop execution of remaining steps
+        - Return cleanly (do not crash worker)
+
+Do NOT change:
+- Poll interval logic
+- Existing update structure
+- Log format
+- Error handling style
+
+------------------------------------
+PHASE 3 — UI: Add Cancel Button
+------------------------------------
+
+In job dashboard:
+
+If status === "running":
+    Show "Cancel" button
+
+On click:
+    POST to /api/jobs/:id/cancel
+    Refresh job list
+
+Do NOT redesign layout.
+Do NOT change styling system.
+Use existing button styles.
+
+------------------------------------
+PHASE 4 — Optional Delete Support
+------------------------------------
+
+Add endpoint:
+
+POST /api/jobs/:id/delete
+
+Rules:
+- Only allow if status is:
+    "completed"
+    "failed"
+    "cancelled"
+- Permanently remove record
+- Wrap in try/catch
+- Return success JSON
+
+Add "Delete" button in UI only for those statuses.
+
+------------------------------------
+DO NOT:
+------------------------------------
+
+- Do NOT auto-delete logs.
+- Do NOT auto-trigger cleanup operations.
+- Do NOT change database tables beyond status allowance.
+- Do NOT modify worker authentication.
+- Do NOT refactor routing structure.
+- Do NOT introduce new dependencies.
+
+------------------------------------
+EXPECTED RESULT
+------------------------------------
+
+System now supports:
+- Graceful cancellation
+- Queue unblocking
+- Safe job deletion
+- Worker cooperative stop
+- No destructive behavior
+
+App must:
+- Compile immediately
+- Deploy cleanly
+- Preserve all existing functionality
+
+After implementation:
+- Restart dev server
+- Confirm endpoints respond correctly
+- Confirm worker stops on cancel

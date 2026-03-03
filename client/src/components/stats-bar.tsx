@@ -1,5 +1,5 @@
 import type { Job } from "@shared/schema";
-import { Clock, CheckCircle, Play, XCircle, FileCheck, Layers } from "lucide-react";
+import { Clock, CheckCircle, Play, XCircle, FileCheck, Layers, Ban } from "lucide-react";
 
 export function StatsBar({ jobs }: { jobs: Job[] }) {
   const counts = {
@@ -9,6 +9,7 @@ export function StatsBar({ jobs }: { jobs: Job[] }) {
     running: jobs.filter((j) => j.status === "running").length,
     completed: jobs.filter((j) => j.status === "completed").length,
     failed: jobs.filter((j) => j.status === "failed").length,
+    cancelled: jobs.filter((j) => j.status === "cancelled").length,
   };
 
   const stats = [
@@ -18,10 +19,11 @@ export function StatsBar({ jobs }: { jobs: Job[] }) {
     { label: "Running", value: counts.running, icon: Play, color: "text-chart-2" },
     { label: "Completed", value: counts.completed, icon: CheckCircle, color: "text-chart-2" },
     { label: "Failed", value: counts.failed, icon: XCircle, color: "text-destructive" },
+    { label: "Cancelled", value: counts.cancelled, icon: Ban, color: "text-muted-foreground" },
   ];
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3" data-testid="container-stats">
+    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3" data-testid="container-stats">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (

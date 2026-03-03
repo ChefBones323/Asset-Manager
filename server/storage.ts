@@ -20,8 +20,10 @@ export interface IStorage {
   rejectJob(id: string): Promise<Job | undefined>;
   getNextApprovedJob(): Promise<Job | undefined>;
   startJob(id: string): Promise<Job | undefined>;
-  updateRunningJob(id: string, logs: string, status?: "completed" | "failed"): Promise<Job | undefined>;
+  updateRunningJob(id: string, logs: string, status?: "completed" | "failed" | "cancelled"): Promise<Job | undefined>;
   getRunningJob(): Promise<Job | undefined>;
+  cancelJob(id: string): Promise<Job | undefined>;
+  deleteJob(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -88,7 +90,7 @@ export class DatabaseStorage implements IStorage {
     return job;
   }
 
-  async updateRunningJob(id: string, logs: string, status?: "completed" | "failed"): Promise<Job | undefined> {
+  async updateRunningJob(id: string, logs: string, status?: "completed" | "failed" | "cancelled"): Promise<Job | undefined> {
     const updates: Record<string, any> = { logs };
     if (status) {
       updates.status = status;
@@ -106,6 +108,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.status, "running"))
       .limit(1);
     return job;
+  }
+
+  async cancelJob(id: string): Promise<Job | undefined> {
+    const [job] = await db.update(jobs)
+      .set({ status: "cancelled", completedAt: new Date() })
+      .where(eq(jobs.id, id))
+      .returning();
+    return job;
+  }
+
+  async deleteJob(id: string): Promise<boolean> {
+    const result = await db.delete(jobs).where(eq(jobs.id, id));
+    return true;
   }
 }
 

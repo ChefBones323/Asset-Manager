@@ -8,12 +8,12 @@ import type { Job } from "@shared/schema";
 import {
   CheckCircle,
   XCircle,
-  FileText,
-  Clock,
   AlertTriangle,
   FolderPlus,
   FolderEdit,
   Timer,
+  Ban,
+  Trash2,
 } from "lucide-react";
 
 export function ProposalCard({ job }: { job: Job }) {
@@ -38,6 +38,28 @@ export function ProposalCard({ job }: { job: Job }) {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to reject job.", variant: "destructive" });
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/cancel`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job Cancelled", description: "Execution has been cancelled." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to cancel job.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/jobs/${job.id}/delete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job Deleted", description: "Record has been removed." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
     },
   });
 
@@ -160,6 +182,36 @@ export function ProposalCard({ job }: { job: Job }) {
             >
               <XCircle className="w-3.5 h-3.5 mr-1" />
               Reject
+            </Button>
+          </div>
+        )}
+
+        {(job.status === "running" || job.status === "approved") && !isAwaitingApproval && (
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+              variant="secondary"
+              size="sm"
+              data-testid={`button-cancel-${job.id}`}
+            >
+              <Ban className="w-3.5 h-3.5 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {(job.status === "completed" || job.status === "failed" || job.status === "cancelled") && (
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              variant="destructive"
+              size="sm"
+              data-testid={`button-delete-${job.id}`}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1" />
+              Delete
             </Button>
           </div>
         )}

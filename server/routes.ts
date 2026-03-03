@@ -122,6 +122,55 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.post("/api/jobs/:id/cancel", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+
+      if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+        return res.json(job);
+      }
+
+      if (job.status !== "running" && job.status !== "approved") {
+        return res.status(400).json({ error: "Can only cancel approved or running jobs" });
+      }
+
+      const updated = await storage.cancelJob(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Cancel job error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/jobs/:id/delete", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+
+      if (job.status !== "completed" && job.status !== "failed" && job.status !== "cancelled") {
+        return res.status(400).json({ error: "Can only delete completed, failed, or cancelled jobs" });
+      }
+
+      await storage.deleteJob(req.params.id);
+      return res.json({ success: true, id: req.params.id });
+    } catch (error) {
+      console.error("Delete job error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/jobs/:id/status", requireWorker, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+      return res.json({ id: job.id, status: job.status });
+    } catch (error) {
+      console.error("Job status check error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/worker/next", requireWorker, async (_req, res) => {
     try {
       const currentlyRunning = await storage.getRunningJob();
@@ -150,13 +199,14 @@ export async function registerRoutes(
 
       const job = await storage.getJob(id);
       if (!job) return res.status(404).json({ error: "Not found" });
-      if (job.status !== "running") {
+      if (job.status !== "running" && job.status !== "cancelled") {
         return res.status(400).json({ error: "Invalid state transition" });
       }
 
-      let newStatus: "completed" | "failed" | undefined;
+      let newStatus: "completed" | "failed" | "cancelled" | undefined;
       if (status === "Completed") newStatus = "completed";
       else if (status === "Failed") newStatus = "failed";
+      else if (status === "Cancelled") newStatus = "cancelled";
 
       const updated = await storage.updateRunningJob(id, logs || job.logs, newStatus);
       return res.json({ status: "updated", job: updated });

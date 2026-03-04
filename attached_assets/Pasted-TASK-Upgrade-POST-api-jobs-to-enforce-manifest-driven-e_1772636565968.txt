@@ -1,0 +1,97 @@
+TASK: Upgrade POST /api/jobs to enforce manifest-driven execution.
+
+DO NOT remove existing governance logic.
+DO NOT remove existing schema fields.
+DO NOT modify worker lease, heartbeat, or escalation logic.
+DO NOT break existing routes.
+DO NOT remove proposedPlan or impactAnalysis.
+This is an additive correction to ensure executableManifest is always generated.
+
+GOAL:
+Every newly created job MUST include a valid executableManifest object stored in the database and returned in the API response.
+
+------------------------------------------------------------
+
+IMPLEMENT THE FOLLOWING:
+
+1) In server/routes.ts, locate the POST "/api/jobs" route.
+
+2) Replace ONLY the handler body logic for job creation with the following safe manifest builder logic:
+
+------------------------------------------------------------
+
+const destructiveChanges =
+  intent.includes("rm ") ||
+  intent.includes("sudo") ||
+  intent.includes("chmod") ||
+  intent.includes("chown");
+
+const impactAnalysis = {
+  filesCreated: [],
+  filesModified: [],
+  destructiveChanges,
+  estimatedTimeSeconds: 10,
+};
+
+const executableManifest = {
+  version: 1,
+  requiresRollback: destructiveChanges,
+  steps: [
+    {
+      id: "step-1",
+      type: "shell",
+      command: intent
+    }
+  ]
+};
+
+------------------------------------------------------------
+
+3) Ensure storage.createJob() is called with:
+
+{
+  intent,
+  reasoningSummary: "Direct manifest-driven execution from user intent.",
+  proposedPlan: ["Execute shell command via executable manifest"],
+  impactAnalysis,
+  executableManifest
+}
+
+------------------------------------------------------------
+
+4) DO NOT remove:
+- proposedPlan
+- impactAnalysis
+- destructiveChanges detection
+- existing schema columns
+- workerId
+- leaseExpiresAt
+- lastHeartbeatAt
+- destructiveApprovedAt
+- escalation logic
+- watchdog logic
+
+------------------------------------------------------------
+
+5) Confirm that:
+- executableManifest is persisted to the jobs table
+- executableManifest is returned in the JSON response
+- /api/worker/next returns executableManifest
+
+------------------------------------------------------------
+
+6) After changes:
+- Save all files
+- Restart dev server
+- Republish production
+- Confirm no TypeScript errors
+- Confirm no schema errors
+- Confirm no route conflicts
+
+------------------------------------------------------------
+
+DO NOT REWRITE THE ENTIRE FILE.
+Only modify job creation logic.
+Preserve all existing governance infrastructure.
+
+END TASK.

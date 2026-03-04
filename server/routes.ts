@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import { storage } from "./storage";
-import { buildProposal } from "./proposal-builder";
+
 import { insertJobSchema } from "@shared/schema";
 
 declare module "express-session" {
@@ -91,25 +91,39 @@ export async function registerRoutes(
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
 
-    const proposal = buildProposal(parsed.data.intent);
+    const intent = parsed.data.intent;
 
-    const manifest = {
+    const destructiveChanges =
+      intent.includes("rm ") ||
+      intent.includes("sudo") ||
+      intent.includes("chmod") ||
+      intent.includes("chown");
+
+    const impactAnalysis = {
+      filesCreated: [] as string[],
+      filesModified: [] as string[],
+      destructiveChanges,
+      estimatedTimeSeconds: 10,
+    };
+
+    const executableManifest = {
       version: 1,
-      requiresRollback: proposal.impactAnalysis?.destructiveChanges === true,
+      requiresRollback: destructiveChanges,
       steps: [
         {
           id: "step-1",
           type: "shell",
-          command: parsed.data.intent,
-          allowed: true,
+          command: intent,
         },
       ],
     };
 
     const job = await storage.createJob({
-      intent: parsed.data.intent,
-      ...proposal,
-      executableManifest: manifest,
+      intent,
+      reasoningSummary: "Direct manifest-driven execution from user intent.",
+      proposedPlan: ["Execute shell command via executable manifest"],
+      impactAnalysis,
+      executableManifest,
     });
 
     res.json(job);

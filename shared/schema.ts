@@ -35,6 +35,7 @@ export const jobs = pgTable("jobs", {
   leaseExpiresAt: timestamp("lease_expires_at"),
   lastHeartbeatAt: timestamp("last_heartbeat_at"),
   destructiveApprovedAt: timestamp("destructive_approved_at"),
+  executableManifest: jsonb("executable_manifest"),
 });
 
 export const insertJobSchema = createInsertSchema(jobs).pick({

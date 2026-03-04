@@ -58,11 +58,29 @@ A human-supervised AI execution control plane with approval workflows and transp
 - `POST /api/worker/heartbeat` - Renew lease (worker, Bearer token, body: jobId + workerId)
 - `POST /api/worker/update` - Update job status/logs (worker, Bearer token, validates workerId match)
 
-## Schema Extensions (Lease/Governance)
+## Schema Extensions (Lease/Governance/Manifest)
 - `workerId` (text, nullable) - Assigned worker identifier
 - `leaseExpiresAt` (timestamp, nullable) - Worker lease expiry (30s default)
 - `lastHeartbeatAt` (timestamp, nullable) - Last heartbeat from worker
 - `destructiveApprovedAt` (timestamp, nullable) - Destructive execution authorization timestamp
+- `executableManifest` (jsonb, nullable) - Manifest-based execution instructions
+
+## Executable Manifest
+- Generated server-side during job creation (POST /api/jobs)
+- Structure: `{ version: 1, requiresRollback: boolean, steps: [{ id, type, command, allowed }] }`
+- Returned to worker via /api/worker/next
+- Worker validates manifest before execution (version must be 1, steps array required)
+
+## Worker (src/worker.py)
+- Manifest-driven execution engine (Python)
+- Polls /api/worker/next for approved jobs
+- Validates manifest version and structure before execution
+- Safe command whitelist: echo, ls, mkdir, cat, touch, python3 (single script), node (single script)
+- Blocked patterns: rm, sudo, chmod, chown, >, >>, &&, ||, ;, backticks, $(, curl, wget, scp, ssh
+- Blocked commands trigger escalation with reason logged
+- Heartbeat every 10 seconds in background thread
+- Rollback on failure: tracks created files, removes them if requiresRollback is true
+- Environment: WORKER_TOKEN, WORKER_ID, API_BASE, POLL_INTERVAL
 
 ## Watchdog (Autonomous)
 - Runs every 5 seconds in server startup

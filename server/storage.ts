@@ -15,6 +15,7 @@ export interface IStorage {
       destructiveChanges: boolean;
       estimatedTimeSeconds: number;
     };
+    executableManifest?: unknown;
   }): Promise<Job>;
   approveJob(id: string): Promise<Job | undefined>;
   rejectJob(id: string): Promise<Job | undefined>;
@@ -52,6 +53,7 @@ export class DatabaseStorage implements IStorage {
       destructiveChanges: boolean;
       estimatedTimeSeconds: number;
     };
+    executableManifest?: unknown;
   }): Promise<Job> {
     const [job] = await db.insert(jobs).values({
       id: randomUUID(),
@@ -60,6 +62,7 @@ export class DatabaseStorage implements IStorage {
       reasoningSummary: input.reasoningSummary,
       proposedPlan: input.proposedPlan,
       impactAnalysis: input.impactAnalysis,
+      executableManifest: input.executableManifest ?? null,
       logs: "",
     }).returning();
     return job;

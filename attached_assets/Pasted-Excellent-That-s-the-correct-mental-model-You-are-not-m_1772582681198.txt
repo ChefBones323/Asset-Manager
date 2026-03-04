@@ -1,0 +1,238 @@
+Excellent. That’s the correct mental model.
+
+You are not manually editing files anymore.
+Replit AI will execute the transformation.
+
+Now we do this cleanly and deliberately.
+
+Below is the **single production-safe instruction block** you paste into Replit AI.
+
+This version assumes:
+
+* You are inside the Replit project
+* File tree is visible
+* App is running cleanly
+* Governance layer already exists
+* We are extending it — not replacing it
+
+---
+
+# 🔵 COPY THIS ENTIRE BLOCK INTO REPLIT AI
+
+```
+We are implementing Manifest-Based Safe Execution inside the existing governance architecture.
+
+CRITICAL RULES:
+- DO NOT delete or refactor existing architecture.
+- DO NOT remove lease, heartbeat, destructive gating, or watchdog logic.
+- DO NOT modify UI.
+- DO NOT partially edit files.
+- REPLACE entire files only when explicitly instructed.
+- If a file is not mentioned, do not modify it.
+- Preserve all existing endpoints.
+
+------------------------------------------------------------
+PHASE 1 — Add Executable Manifest Support (Schema Layer)
+------------------------------------------------------------
+
+STEP 1:
+Open: shared/schema.ts
+
+Modify the jobs table definition to ADD:
+
+executableManifest: jsonb("executable_manifest"),
+
+This field must be:
+- nullable
+- typed as unknown or any JSON object
+- NOT required
+- NOT removing any existing fields
+
+DO NOT remove:
+workerId
+leaseExpiresAt
+lastHeartbeatAt
+destructiveApprovedAt
+
+Return confirmation that:
+- executable_manifest column exists in Drizzle schema
+- no fields were removed
+
+------------------------------------------------------------
+PHASE 2 — Server Generates Manifest
+------------------------------------------------------------
+
+STEP 2:
+Open: server/routes.ts
+
+Inside the job creation logic (POST /api/jobs):
+
+After impactAnalysis is generated,
+construct a manifest object:
+
+const manifest = {
+  version: 1,
+  requiresRollback: impactAnalysis?.destructiveChanges === true,
+  steps: [
+    {
+      id: "step-1",
+      type: "shell",
+      command: intent,
+      allowed: true
+    }
+  ]
+};
+
+Store this into executableManifest when inserting the job.
+
+Ensure:
+- The manifest is saved in DB.
+- The /api/worker/next endpoint includes executableManifest in the returned job.
+- No existing safety logic is removed.
+
+Do NOT change worker assignment logic.
+Do NOT change lease logic.
+Do NOT change destructive escalation logic.
+
+Return confirmation that:
+- Manifest is generated on job creation
+- Manifest is returned to worker
+
+------------------------------------------------------------
+PHASE 3 — Worker Enforces Manifest
+------------------------------------------------------------
+
+STEP 3:
+Open: src/worker.py
+
+REPLACE ENTIRE FILE.
+
+Implement a manifest-driven execution engine.
+
+Requirements:
+
+1. Worker must refuse to execute if:
+   - executableManifest is missing
+   - version !== 1
+   - steps array missing
+
+2. Implement SAFE COMMAND WHITELIST:
+
+Allow only:
+- echo
+- ls
+- mkdir
+- cat
+- touch
+- python3 (single script only)
+- node (single script only)
+
+Block if command contains:
+- rm
+- sudo
+- chmod
+- chown
+- >
+- >>
+- &&
+- ||
+- ;
+- backticks
+- $(
+- curl
+- wget
+- scp
+- ssh
+
+If blocked:
+- Send worker update
+- Mark job escalated
+- Include reason in logs
+- Do NOT execute command
+
+3. STEP EXECUTION PROTOCOL:
+
+For each manifest step:
+
+- Validate against whitelist
+- Send update: "[STEP id] Starting"
+- Execute
+- On success: "[STEP id] Completed"
+- On failure:
+    if requiresRollback:
+        perform rollback
+    mark Failed
+    send logs
+
+4. ROLLBACK BEHAVIOR:
+
+If requiresRollback === true:
+- Track files created during execution
+- On failure:
+    attempt to delete those files
+    log "[ROLLBACK] Removed <file>"
+- If rollback fails:
+    log failure but continue
+
+5. Lease & heartbeat:
+- Keep existing behavior
+- Heartbeat every 10 seconds
+- Renew lease on successful step
+- Respect lease expiration
+
+6. Worker must continue using:
+   X-Worker-Id header
+   WORKER_TOKEN authentication
+
+------------------------------------------------------------
+PHASE 4 — Verification
+------------------------------------------------------------
+
+After implementation:
+
+Verify:
+
+1. Create a safe echo job
+2. Approve
+3. Worker executes successfully
+4. Job completes
+5. Create destructive job
+6. Approve without destructive approval
+7. Worker escalates
+8. Approve destructive
+9. Resume
+10. Worker executes
+
+Return a final summary:
+
+- Files modified
+- Fields added
+- Manifest structure
+- Whitelist rules
+- Rollback mechanism
+- Confirm lease + watchdog still active
+```
+
+---
+
+Now pause.
+
+Before you paste it:
+
+Confirm:
+
+You are inside the Replit Code editor (not Database).
+
+Once you paste and it completes, do NOT publish immediately.
+
+Report back:
+
+* Did it modify schema?
+* Did it rewrite worker?
+* Did it confirm manifest generation?
+
+We are transitioning from “task runner” to “controlled execution engine.”
+
+That’s a serious architectural shift.
+
+And it must be verified like one.

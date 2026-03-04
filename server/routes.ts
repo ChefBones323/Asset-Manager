@@ -92,9 +92,24 @@ export async function registerRoutes(
     }
 
     const proposal = buildProposal(parsed.data.intent);
+
+    const manifest = {
+      version: 1,
+      requiresRollback: proposal.impactAnalysis?.destructiveChanges === true,
+      steps: [
+        {
+          id: "step-1",
+          type: "shell",
+          command: parsed.data.intent,
+          allowed: true,
+        },
+      ],
+    };
+
     const job = await storage.createJob({
       intent: parsed.data.intent,
       ...proposal,
+      executableManifest: manifest,
     });
 
     res.json(job);

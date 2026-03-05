@@ -30,7 +30,9 @@ A human-supervised AI execution control plane with approval workflows and transp
 - `server/proposal-builder.ts` - Simulated cognitive engine that generates proposals from intents (legacy, no longer used in job creation)
 - `blueprint_update_github.py` - Idempotent script to add GitHub capabilities to the governed blueprint registry
 - `registry/capabilities.json` - Governed blueprint capability registry (7 GitHub functions, sorted by ID)
-- `lint/blueprint_validator.py` - Validates registry JSON schema, checks for duplicates, required fields, and sort order
+- `lint/blueprint_validator.py` - Python registry validator (JSON schema, duplicates, required fields, sort order)
+- `lint/validate-registry.cjs` - Node.js registry validator (same checks + module file existence verification)
+- `capabilities/github/*.py` - GitHub capability function stubs (7 modules matching registry entries)
 - `server/seed.ts` - Database seeding with sample jobs
 - `server/db.ts` - Database connection (Neon/PostgreSQL)
 - `client/src/pages/dashboard.tsx` - Main dashboard with proposal creation, approval, governance tab, and live feed
@@ -97,8 +99,17 @@ A human-supervised AI execution control plane with approval workflows and transp
   - `github_fetch_file` — Fetch file contents at a specific ref
   - `github_merge_pull_request` — Merge an existing pull request
   - `github_search_repository` — Search files by keywords/patterns
+- Module files live at `capabilities/github/<function_name>.py` — each exports a single function matching the registry entry
 - Update script: `python3 blueprint_update_github.py` (idempotent, deduplicates by id)
-- Validation: `python3 lint/blueprint_validator.py` (checks JSON structure, required fields, duplicates, sort order)
+- Validation (Node.js, no Python required): `node lint/validate-registry.cjs`
+- Validation (Python): `python3 lint/blueprint_validator.py`
+- Both validators check: JSON structure, 7 required fields, no duplicate IDs/names, sort order, valid language values
+- The Node.js validator additionally verifies that each module path resolves to a real file on disk
+- Example usage:
+  ```
+  node lint/validate-registry.cjs          # validate registry (recommended, works everywhere)
+  python3 blueprint_update_github.py       # add missing capabilities (idempotent)
+  ```
 
 ## Watchdog (Autonomous)
 - Runs every 5 seconds in server startup

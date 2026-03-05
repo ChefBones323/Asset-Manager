@@ -57,7 +57,7 @@ class FeedGenerateWorker:
             policy_weight_factor = policy_manifest.get("policy_weight_factor", 1.0) if policy_manifest else 1.0
 
             epoch = datetime(2024, 1, 1, tzinfo=timezone.utc)
-            dist_time = entry.distribution_time if entry.distribution_time else datetime.now(timezone.utc)
+            dist_time = entry.distribution_time if entry.distribution_time else epoch
             time_score = (dist_time - epoch).total_seconds() / 86400.0
 
             score = (

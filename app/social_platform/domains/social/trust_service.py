@@ -83,29 +83,16 @@ class TrustService:
             trust_score = max(-100.0, min(100.0, trust_score))
 
             profile = session.query(TrustProfile).filter(TrustProfile.user_id == user_id).first()
-            if profile:
-                profile.trust_score = trust_score
-                profile.positive_events = positive_events
-                profile.negative_events = negative_events
-                profile.total_events = len(events)
-                profile.last_computed_at = datetime.now(timezone.utc)
-            else:
-                profile = TrustProfile(
-                    user_id=user_id,
-                    trust_score=trust_score,
-                    positive_events=positive_events,
-                    negative_events=negative_events,
-                    total_events=len(events),
-                    last_computed_at=datetime.now(timezone.utc),
-                )
-                session.add(profile)
 
-            session.commit()
-            session.refresh(profile)
-            return profile.to_dict()
-        except Exception:
-            session.rollback()
-            raise
+            return {
+                "user_id": str(user_id),
+                "trust_score": trust_score,
+                "positive_events": positive_events,
+                "negative_events": negative_events,
+                "total_events": len(events),
+                "profile_exists": profile is not None,
+                "stored_score": profile.trust_score if profile else None,
+            }
         finally:
             if self._should_close():
                 session.close()

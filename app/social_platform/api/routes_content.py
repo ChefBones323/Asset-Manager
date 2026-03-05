@@ -11,6 +11,7 @@ from app.social_platform.domains.social.content_service import ContentService
 from app.social_platform.domains.social.discussion_service import DiscussionService
 from app.social_platform.workers.content_worker import ContentWorker
 from app.social_platform.workers.interaction_worker import InteractionWorker
+from app.social_platform.workers.feed_index_worker import FeedIndexWorker
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -21,6 +22,7 @@ _content_service = ContentService(_execution_engine)
 _discussion_service = DiscussionService()
 _content_worker = ContentWorker(_projection_engine)
 _interaction_worker = InteractionWorker(_projection_engine)
+_feed_index_worker = FeedIndexWorker(_projection_engine)
 
 
 class CreatePostRequest(BaseModel):

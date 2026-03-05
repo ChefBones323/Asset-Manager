@@ -5,18 +5,26 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.social_platform.infrastructure.event_store import EventStore
+from app.social_platform.infrastructure.projection_engine import ProjectionEngine
 from app.social_platform.platform.execution_engine import ExecutionEngine
 from app.social_platform.domains.social.trust_service import TrustService
 from app.social_platform.domains.social.delegation_service import DelegationService
 from app.social_platform.domains.social.knowledge_service import KnowledgeService
+from app.social_platform.workers.trust_compute_worker import TrustComputeWorker
+from app.social_platform.workers.delegation_worker import DelegationWorker
+from app.social_platform.workers.knowledge_worker import KnowledgeWorker
 
 router = APIRouter(prefix="/api/trust", tags=["trust"])
 
 _event_store = EventStore()
+_projection_engine = ProjectionEngine(_event_store)
 _engine = ExecutionEngine(_event_store)
 _trust_service = TrustService(_engine)
 _delegation_service = DelegationService(_engine)
 _knowledge_service = KnowledgeService(_engine)
+_trust_worker = TrustComputeWorker(_projection_engine)
+_delegation_worker = DelegationWorker(_projection_engine)
+_knowledge_worker = KnowledgeWorker(_projection_engine)
 
 
 class RecordTrustEventRequest(BaseModel):

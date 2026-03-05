@@ -92,15 +92,13 @@ class KnowledgeService:
             knowledge_score = base_score + (citation_count * citation_weight)
             knowledge_score = min(100.0, knowledge_score)
 
-            artifact.knowledge_score = knowledge_score
-            artifact.citation_count = citation_count
-            session.commit()
-            session.refresh(artifact)
-
-            return artifact.to_dict()
-        except Exception:
-            session.rollback()
-            raise
+            return {
+                "artifact_id": str(artifact_id),
+                "title": artifact.title if hasattr(artifact, "title") else "",
+                "knowledge_score": knowledge_score,
+                "citation_count": citation_count,
+                "stored_score": artifact.knowledge_score if hasattr(artifact, "knowledge_score") else None,
+            }
         finally:
             if self._should_close():
                 session.close()

@@ -118,14 +118,16 @@ A human-supervised AI execution control plane with approval workflows and transp
 - **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (72 unit tests)
 - **Projection Rebuild CLI**: `python -m app.social_platform.tools.replay_social_system`
 
-### Core Invariants
-1. Approval required before execution
-2. Lease ownership required for state mutation
-3. Only one active lease per job
-4. Deterministic manifests (SHA-256 checksums)
-5. Domain isolation
-6. Full audit logs
-7. Replayable state from event logs
+### Core Invariants (8 verified by audit)
+1. EventStore is append-only (no UPDATE/DELETE)
+2. append_event writes Event + AuditLog in a single transaction
+3. All writes originate from ExecutionEngine → EventStore → ProjectionEngine → Worker handlers
+4. No projection tables written outside ProjectionEngine handlers — services are read-only
+5. Workers require a valid lease before executing (via ExecutionEngine)
+6. Feed ranking is fully deterministic (epoch fallback, content_id tiebreak, no random/datetime.now)
+7. Trust scores derive only from trust_events
+8. Governance proposals execute through ExecutionEngine
+- Additional: Approval required before execution, deterministic manifests (SHA-256), domain isolation, full audit logs, replayable state
 
 ### Phase 1 — Platform Foundation
 - `app/social_platform/infrastructure/event_store.py` — Append-only event ledger with SERIALIZABLE isolation, optimistic concurrency control, auto-retry on serialization conflicts (3 attempts), transactional dual-write (events + audit_logs in single commit)

@@ -101,17 +101,10 @@ class GovernanceService:
             votes_against = sum(v.weight for v in votes if v.vote == "against")
             total_votes = len(votes)
 
-            proposal.votes_for = int(votes_for)
-            proposal.votes_against = int(votes_against)
-            proposal.total_votes = total_votes
-
             quorum_met = total_votes >= proposal.quorum
             total_weight = votes_for + votes_against
             approval_ratio = votes_for / total_weight if total_weight > 0 else 0.0
             approved = quorum_met and approval_ratio >= proposal.approval_threshold
-
-            session.commit()
-            session.refresh(proposal)
 
             return {
                 "proposal_id": str(proposal_id),
@@ -123,9 +116,6 @@ class GovernanceService:
                 "approved": approved,
                 "status": proposal.status,
             }
-        except Exception:
-            session.rollback()
-            raise
         finally:
             if self._should_close():
                 session.close()

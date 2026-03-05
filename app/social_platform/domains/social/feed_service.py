@@ -42,21 +42,14 @@ class FeedService:
             if self._should_close():
                 session.close()
 
-    def index_content(
+    def get_feed_entry(
         self,
         feed_owner: uuid.UUID,
         content_id: uuid.UUID,
-        author_id: uuid.UUID,
-        content_type: str = "post",
-        policy_scope: str = "default",
-        reaction_count: int = 0,
-        trust_score: float = 0.0,
-        policy_weight: float = 1.0,
-        distribution_time: Optional[datetime] = None,
-    ) -> dict:
+    ) -> Optional[dict]:
         session = self._get_session()
         try:
-            existing = (
+            entry = (
                 session.query(FeedIndex)
                 .filter(
                     FeedIndex.feed_owner == feed_owner,
@@ -64,52 +57,15 @@ class FeedService:
                 )
                 .first()
             )
-            if existing:
-                existing.reaction_count = reaction_count
-                existing.trust_score = trust_score
-                existing.policy_weight = policy_weight
-                session.commit()
-                session.refresh(existing)
-                return existing.to_dict()
-
-            entry = FeedIndex(
-                feed_owner=feed_owner,
-                content_id=content_id,
-                author_id=author_id,
-                content_type=content_type,
-                policy_scope=policy_scope,
-                reaction_count=reaction_count,
-                trust_score=trust_score,
-                policy_weight=policy_weight,
-                distribution_time=distribution_time or datetime.now(timezone.utc),
-            )
-            session.add(entry)
-            session.commit()
-            session.refresh(entry)
-            return entry.to_dict()
-        except Exception:
-            session.rollback()
-            raise
+            return entry.to_dict() if entry else None
         finally:
             if self._should_close():
                 session.close()
 
-    def remove_content(self, feed_owner: uuid.UUID, content_id: uuid.UUID) -> bool:
+    def count_feed_entries(self, user_id: uuid.UUID) -> int:
         session = self._get_session()
         try:
-            deleted = (
-                session.query(FeedIndex)
-                .filter(
-                    FeedIndex.feed_owner == feed_owner,
-                    FeedIndex.content_id == content_id,
-                )
-                .delete()
-            )
-            session.commit()
-            return deleted > 0
-        except Exception:
-            session.rollback()
-            raise
+            return session.query(FeedIndex).filter(FeedIndex.feed_owner == user_id).count()
         finally:
             if self._should_close():
                 session.close()

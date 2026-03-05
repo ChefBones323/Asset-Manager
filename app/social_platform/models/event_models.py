@@ -1,14 +1,24 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, DateTime
+from sqlalchemy import Column, String, Text, DateTime, BigInteger, Sequence
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.social_platform.models.base import Base
+
+event_sequence_seq = Sequence("event_sequence_seq")
 
 
 class Event(Base):
     __tablename__ = "events"
 
     event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_sequence = Column(
+        BigInteger,
+        event_sequence_seq,
+        server_default=event_sequence_seq.next_value(),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
     domain = Column(String(255), nullable=False, index=True)
     event_type = Column(String(255), nullable=False, index=True)
     actor_id = Column(UUID(as_uuid=True), nullable=False, index=True)
@@ -26,6 +36,7 @@ class Event(Base):
     def to_dict(self):
         return {
             "event_id": str(self.event_id),
+            "event_sequence": self.event_sequence,
             "domain": self.domain,
             "event_type": self.event_type,
             "actor_id": str(self.actor_id),

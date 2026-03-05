@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock
 
-from app.social_platform.workers.feed_generate_worker import FeedGenerateWorker
+from app.social_platform.domains.social.feed_ranking import deterministic_rank, compute_feed_score
 from app.social_platform.models.feed_models import FeedIndex
 
 
@@ -32,11 +32,6 @@ class TestFeedRanking:
         return entry
 
     def test_deterministic_rank_by_time(self):
-        worker = FeedGenerateWorker.__new__(FeedGenerateWorker)
-        from app.social_platform.policies.feed_policy_engine import FeedPolicyEngine
-        worker._policy_engine = FeedPolicyEngine()
-        worker._session = None
-
         now = datetime.now(timezone.utc)
         old_entry = self._make_feed_entry(
             distribution_time=now - timedelta(days=10),
@@ -47,16 +42,11 @@ class TestFeedRanking:
             content_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
         )
 
-        ranked = worker._deterministic_rank([old_entry, new_entry])
+        ranked = deterministic_rank([old_entry, new_entry])
         assert ranked[0] == new_entry
         assert ranked[1] == old_entry
 
     def test_deterministic_rank_by_reactions(self):
-        worker = FeedGenerateWorker.__new__(FeedGenerateWorker)
-        from app.social_platform.policies.feed_policy_engine import FeedPolicyEngine
-        worker._policy_engine = FeedPolicyEngine()
-        worker._session = None
-
         now = datetime.now(timezone.utc)
         low_reactions = self._make_feed_entry(
             distribution_time=now,
@@ -69,15 +59,10 @@ class TestFeedRanking:
             content_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
         )
 
-        ranked = worker._deterministic_rank([low_reactions, high_reactions])
+        ranked = deterministic_rank([low_reactions, high_reactions])
         assert ranked[0] == high_reactions
 
     def test_deterministic_rank_with_trust_score(self):
-        worker = FeedGenerateWorker.__new__(FeedGenerateWorker)
-        from app.social_platform.policies.feed_policy_engine import FeedPolicyEngine
-        worker._policy_engine = FeedPolicyEngine()
-        worker._session = None
-
         now = datetime.now(timezone.utc)
         low_trust = self._make_feed_entry(
             distribution_time=now,
@@ -90,15 +75,10 @@ class TestFeedRanking:
             content_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
         )
 
-        ranked = worker._deterministic_rank([low_trust, high_trust])
+        ranked = deterministic_rank([low_trust, high_trust])
         assert ranked[0] == high_trust
 
     def test_deterministic_rank_with_policy_manifest(self):
-        worker = FeedGenerateWorker.__new__(FeedGenerateWorker)
-        from app.social_platform.policies.feed_policy_engine import FeedPolicyEngine
-        worker._policy_engine = FeedPolicyEngine()
-        worker._session = None
-
         now = datetime.now(timezone.utc)
         entry_a = self._make_feed_entry(
             distribution_time=now,
@@ -112,21 +92,16 @@ class TestFeedRanking:
         )
 
         policy = {"reaction_weight": 10.0, "timestamp_weight": 0.0, "trust_weight": 0.0, "policy_weight_factor": 0.0}
-        ranked = worker._deterministic_rank([entry_a, entry_b], policy)
+        ranked = deterministic_rank([entry_a, entry_b], policy)
         assert ranked[0] == entry_a
 
     def test_same_score_uses_content_id_tiebreak(self):
-        worker = FeedGenerateWorker.__new__(FeedGenerateWorker)
-        from app.social_platform.policies.feed_policy_engine import FeedPolicyEngine
-        worker._policy_engine = FeedPolicyEngine()
-        worker._session = None
-
         now = datetime.now(timezone.utc)
         id_a = uuid.UUID("00000000-0000-0000-0000-000000000001")
         id_b = uuid.UUID("00000000-0000-0000-0000-000000000002")
         entry_a = self._make_feed_entry(distribution_time=now, content_id=id_a)
         entry_b = self._make_feed_entry(distribution_time=now, content_id=id_b)
 
-        ranked_1 = worker._deterministic_rank([entry_a, entry_b])
-        ranked_2 = worker._deterministic_rank([entry_b, entry_a])
+        ranked_1 = deterministic_rank([entry_a, entry_b])
+        ranked_2 = deterministic_rank([entry_b, entry_a])
         assert str(ranked_1[0].content_id) == str(ranked_2[0].content_id)

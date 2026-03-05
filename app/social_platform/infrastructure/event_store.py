@@ -111,6 +111,19 @@ class EventStore:
             f"Exhausted {SERIALIZATION_RETRY_LIMIT} retries"
         ) from last_error
 
+    def _has_event_sequence(self, session: Session) -> bool:
+        try:
+            session.execute(text("SELECT event_sequence FROM events LIMIT 0"))
+            return True
+        except Exception:
+            session.rollback()
+            return False
+
+    def _apply_ordering(self, query, session: Session):
+        if self._has_event_sequence(session):
+            return query.order_by(Event.event_sequence.asc())
+        return query.order_by(Event.timestamp.asc(), Event.event_id.asc())
+
     def get_events(
         self,
         limit: int = 100,
@@ -125,7 +138,7 @@ class EventStore:
                 query = query.filter(Event.timestamp > after)
             if before:
                 query = query.filter(Event.timestamp < before)
-            query = query.order_by(Event.timestamp.asc())
+            query = self._apply_ordering(query, session)
             query = query.offset(offset).limit(limit)
             return query.all()
         finally:
@@ -140,13 +153,9 @@ class EventStore:
     ) -> list[Event]:
         session = self._get_session()
         try:
-            query = (
-                session.query(Event)
-                .filter(Event.domain == domain)
-                .order_by(Event.timestamp.asc())
-                .offset(offset)
-                .limit(limit)
-            )
+            query = session.query(Event).filter(Event.domain == domain)
+            query = self._apply_ordering(query, session)
+            query = query.offset(offset).limit(limit)
             return query.all()
         finally:
             if self._should_close():
@@ -186,8 +195,16 @@ class EventStore:
                 query = query.filter(Event.domain == domain)
             if after:
                 query = query.filter(Event.timestamp > after)
-            query = query.order_by(Event.timestamp.asc())
+            query = self._apply_ordering(query, session)
             return query.all()
+        finally:
+            if self._should_close():
+                session.close()
+
+    def count_events(self) -> int:
+        session = self._get_session()
+        try:
+            return session.query(Event).count()
         finally:
             if self._should_close():
                 session.close()

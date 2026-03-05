@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.social_platform.models.base import SessionLocal
 from app.social_platform.models.feed_models import FeedIndex
 from app.social_platform.policies.feed_policy_engine import FeedPolicyEngine
+from app.social_platform.domains.social.feed_ranking import deterministic_rank
 
 
 class FeedGenerateWorker:
@@ -38,37 +39,12 @@ class FeedGenerateWorker:
             if policy_manifest:
                 self._policy_engine.load_policy_manifest(policy_manifest)
 
-            ranked = self._deterministic_rank(entries, policy_manifest)
+            ranked = deterministic_rank(entries, policy_manifest)
             paginated = ranked[offset : offset + limit]
             return [entry.to_dict() for entry in paginated]
         finally:
             if self._should_close():
                 session.close()
-
-    def _deterministic_rank(
-        self,
-        entries: List[FeedIndex],
-        policy_manifest: Optional[dict] = None,
-    ) -> List[FeedIndex]:
-        def compute_score(entry: FeedIndex) -> float:
-            ts_weight = policy_manifest.get("timestamp_weight", 1.0) if policy_manifest else 1.0
-            reaction_weight = policy_manifest.get("reaction_weight", 0.1) if policy_manifest else 0.1
-            trust_weight = policy_manifest.get("trust_weight", 0.5) if policy_manifest else 0.5
-            policy_weight_factor = policy_manifest.get("policy_weight_factor", 1.0) if policy_manifest else 1.0
-
-            epoch = datetime(2024, 1, 1, tzinfo=timezone.utc)
-            dist_time = entry.distribution_time if entry.distribution_time else epoch
-            time_score = (dist_time - epoch).total_seconds() / 86400.0
-
-            score = (
-                time_score * ts_weight
-                + entry.reaction_count * reaction_weight
-                + entry.trust_score * trust_weight
-                + entry.policy_weight * policy_weight_factor
-            )
-            return score
-
-        return sorted(entries, key=lambda e: (compute_score(e), str(e.content_id)), reverse=True)
 
     def handle_event(self, event) -> dict:
         event_type = event.event_type if hasattr(event, "event_type") else event.get("event_type", "")

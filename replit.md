@@ -114,10 +114,15 @@ A human-supervised AI execution control plane with approval workflows and transp
 ## Social Civic Infrastructure Engine (app/social_platform/)
 - **Architecture**: Deterministic event sourcing — all mutations flow through ExecutionEngine → EventStore → ProjectionEngine
 - **Stack**: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL
-- **Entry point**: `app/social_platform/main.py` (FastAPI app, 33 routes)
-- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (82 unit tests)
-- **Projection Rebuild CLI**: `python -m app.social_platform.tools.replay_social_system`
+- **Entry point**: `app/social_platform/main.py` (FastAPI app, 37 routes)
+- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (106 unit tests across 16 test files)
+- **Projection Rebuild CLI**: `python -m app.social_platform.tools.replay_social_system [--force]`
 - **Event Stream Inspector**: `GET /admin/events` (SSE streaming + paginated history), `GET /admin/event_stream` (admin UI)
+- **Feed Debugger**: `GET /admin/feed_explain` (ranking explanation API), `GET /admin/feed_debugger` (admin UI)
+- **Worker Health Dashboard**: `GET /admin/workers` (worker/lease/heartbeat data), `GET /admin/worker_dashboard` (admin UI with 5s auto-refresh)
+- **Event Metrics**: `GET /admin/event_metrics` (events/s, domain breakdown, retry/dead-letter rates)
+- **Shared Ranking**: `app/social_platform/domains/social/feed_ranking.py` — single source of truth for deterministic ranking used by both FeedGenerateWorker and FeedExplainService
+- **Event Sequence Index**: `event_sequence BIGSERIAL` column on events table for stronger deterministic ordering; EventStore falls back to timestamp+event_id ordering if column unavailable
 
 ### Core Invariants (8 verified by audit)
 1. EventStore is append-only (no UPDATE/DELETE)

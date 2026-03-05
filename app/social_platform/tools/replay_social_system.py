@@ -5,10 +5,11 @@ deterministically rebuilds every projection table.
 
 Usage:
     python -m app.social_platform.tools.replay_social_system
-    python app/social_platform/tools/replay_social_system.py
+    python -m app.social_platform.tools.replay_social_system --force
 """
 import sys
 import time
+import argparse
 from datetime import datetime, timezone
 
 from sqlalchemy import text
@@ -30,6 +31,31 @@ PROJECTION_TABLES = [
 ]
 
 
+def check_active_workers(session) -> list:
+    try:
+        events = (
+            session.query(
+                text("payload->>'worker_id'"),
+                text("payload->>'job_id'"),
+            )
+            .from_statement(
+                text(
+                    "SELECT payload->>'worker_id' as worker_id, payload->>'job_id' as job_id "
+                    "FROM events WHERE domain = 'lease' AND event_type = 'lease_acquired' "
+                    "AND (payload->>'job_id') NOT IN ("
+                    "  SELECT payload->>'job_id' FROM events "
+                    "  WHERE domain = 'lease' AND event_type IN ('lease_released', 'lease_recovered')"
+                    ") "
+                    "AND (payload->>'expires_at')::timestamptz > NOW()"
+                )
+            )
+            .all()
+        )
+        return [{"worker_id": row[0], "job_id": row[1]} for row in events]
+    except Exception:
+        return []
+
+
 def wipe_projection_tables(session):
     wiped = []
     for table_name in PROJECTION_TABLES:
@@ -45,7 +71,7 @@ def wipe_projection_tables(session):
     return wiped
 
 
-def run_replay():
+def run_replay(force: bool = False):
     print("=" * 60)
     print("PROJECTION REBUILD — Social Civic Infrastructure Engine")
     print("=" * 60)
@@ -56,6 +82,25 @@ def run_replay():
     session = SessionLocal()
     event_store = EventStore(session=session)
     projection_engine = ProjectionEngine(event_store)
+
+    print("[0/4] Checking for active workers...")
+    active_workers = check_active_workers(session)
+    if active_workers:
+        print(f"  WARNING: {len(active_workers)} active worker(s) detected:")
+        for w in active_workers:
+            print(f"    - Worker: {w['worker_id']}, Job: {w['job_id']}")
+        if not force:
+            print()
+            print("  ABORT: Cannot replay while workers are active.")
+            print("  Use --force to override this safety check.")
+            print()
+            session.close()
+            return {"status": "aborted", "reason": "active_workers", "workers": active_workers}
+        else:
+            print("  --force flag set, proceeding despite active workers.")
+    else:
+        print("  No active workers detected.")
+    print()
 
     print("[1/4] Wiping projection tables...")
     wiped = wipe_projection_tables(session)
@@ -133,5 +178,19 @@ def _print_summary(processed, wiped, elapsed, domains=None, event_types=None):
     print("-" * 60)
 
 
+def main():
+    parser = argparse.ArgumentParser(
+        description="Projection Rebuild CLI for the Social Civic Infrastructure Engine"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Force replay even if workers are active",
+    )
+    args = parser.parse_args()
+    run_replay(force=args.force)
+
+
 if __name__ == "__main__":
-    run_replay()
+    main()

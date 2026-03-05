@@ -114,9 +114,10 @@ A human-supervised AI execution control plane with approval workflows and transp
 ## Social Civic Infrastructure Engine (app/social_platform/)
 - **Architecture**: Deterministic event sourcing — all mutations flow through ExecutionEngine → EventStore → ProjectionEngine
 - **Stack**: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL
-- **Entry point**: `app/social_platform/main.py` (FastAPI app, 31 routes)
-- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (72 unit tests)
+- **Entry point**: `app/social_platform/main.py` (FastAPI app, 33 routes)
+- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (82 unit tests)
 - **Projection Rebuild CLI**: `python -m app.social_platform.tools.replay_social_system`
+- **Event Stream Inspector**: `GET /admin/events` (SSE streaming + paginated history), `GET /admin/event_stream` (admin UI)
 
 ### Core Invariants (8 verified by audit)
 1. EventStore is append-only (no UPDATE/DELETE)

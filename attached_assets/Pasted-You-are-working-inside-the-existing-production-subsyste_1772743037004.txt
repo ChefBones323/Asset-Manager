@@ -1,0 +1,236 @@
+You are working inside the existing production subsystem:
+
+app/social_platform
+
+The system is an event-sourced civic infrastructure engine.
+
+The following architecture invariants MUST remain intact:
+
+ExecutionEngine → EventStore → ProjectionEngine → Workers → Projection Tables
+
+Do not introduce direct writes to projection tables.
+
+Do not modify the existing Node.js application.
+
+Extend the system by adding the following operational observability and debugging tools.
+
+--------------------------------------------------
+
+FEATURE 1 — FEED EXPLAIN ENGINE
+
+Create a deterministic feed debugging engine that explains why content ranked in a specific position.
+
+Add module:
+
+app/social_platform/domains/social/feed_explain_service.py
+
+The service must compute the ranking breakdown for a given feed entry.
+
+Input parameters:
+
+user_id  
+content_id  
+policy_scope  
+
+Output structure:
+
+{
+  "content_id": "...",
+  "rank_position": 3,
+  "score_breakdown": {
+      "timestamp_weight": 0.40,
+      "reaction_weight": 0.25,
+      "trust_weight": 0.20,
+      "policy_weight": 0.15
+  },
+  "raw_inputs": {
+      "timestamp": "...",
+      "reaction_count": 12,
+      "trust_score": 0.84
+  },
+  "policy_manifest_id": "...",
+  "tie_break_rule": "content_id"
+}
+
+The explanation must use the same deterministic ranking function used by FeedGenerateWorker.
+
+Never mutate state.
+
+--------------------------------------------------
+
+API ROUTE
+
+Add:
+
+GET /admin/feed_explain
+
+Parameters:
+
+user_id  
+content_id  
+policy_scope  
+
+Returns the ranking explanation.
+
+--------------------------------------------------
+
+ADMIN UI
+
+Create page:
+
+/admin/feed_debugger
+
+Features:
+
+- input fields for user_id and content_id
+- display ranking breakdown
+- display weight contributions
+- show policy manifest used
+- show final deterministic score
+
+--------------------------------------------------
+
+FEATURE 2 — WORKER HEALTH DASHBOARD
+
+Create endpoint:
+
+GET /admin/workers
+
+Display:
+
+active workers  
+worker heartbeats  
+active leases  
+retry counts  
+dead-letter queue jobs  
+stale lease detection  
+
+Data sources:
+
+LeaseManager  
+WorkerRuntime  
+EventStore
+
+Worker dashboard must never mutate state.
+
+--------------------------------------------------
+
+ADMIN UI
+
+Create page:
+
+/admin/worker_dashboard
+
+Features:
+
+- worker status table
+- heartbeat timestamps
+- lease ownership
+- job retry counts
+- dead-letter queue entries
+- refresh every 5 seconds automatically
+
+--------------------------------------------------
+
+FEATURE 3 — EVENT METRICS API
+
+Create module:
+
+app/social_platform/infrastructure/event_metrics.py
+
+Compute event stream metrics.
+
+Metrics must include:
+
+events_per_second  
+events_by_domain  
+worker_queue_depth  
+retry_rate  
+dead_letter_rate  
+
+--------------------------------------------------
+
+API ROUTE
+
+GET /admin/event_metrics
+
+Return JSON:
+
+{
+  "events_per_second": 42,
+  "events_by_domain": {
+      "content": 18,
+      "trust": 5,
+      "governance": 2
+  },
+  "queue_depth": 7,
+  "retry_rate": 0.02,
+  "dead_letter_rate": 0.001
+}
+
+Metrics must be computed using read-only transactions.
+
+--------------------------------------------------
+
+FEATURE 4 — EVENT REPLAY SAFETY LOCK
+
+Enhance the projection replay CLI:
+
+app/social_platform/tools/replay_social_system.py
+
+Add safety lock:
+
+Prevent replay if workers are running.
+
+Replay must require explicit flag:
+
+--force
+
+Example:
+
+python -m app.social_platform.tools.replay_social_system --force
+
+If workers are active without the flag, abort with warning.
+
+--------------------------------------------------
+
+FEATURE 5 — EVENT SEQUENCE INDEX
+
+Improve deterministic ordering in the EventStore.
+
+Add column:
+
+event_sequence BIGSERIAL PRIMARY KEY
+
+Update event queries to order by:
+
+event_sequence ASC
+
+Fallback to timestamp ordering if column unavailable.
+
+--------------------------------------------------
+
+TESTING
+
+Add unit tests for:
+
+feed explanation accuracy  
+worker dashboard queries  
+event metrics calculations  
+event sequence ordering  
+
+All tests must pass.
+
+--------------------------------------------------
+
+FINAL OBJECTIVE
+
+Extend the platform with:
+
+feed ranking explainability  
+worker health monitoring  
+event stream metrics  
+safe replay operations  
+stronger event ordering
+
+Maintain deterministic event-sourced architecture and do not introduce CRUD patterns.

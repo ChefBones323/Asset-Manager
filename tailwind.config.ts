@@ -6,12 +6,11 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        lg: ".5625rem",
+        md: ".375rem",
+        sm: ".1875rem",
       },
       colors: {
-        // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
         border: "hsl(var(--border) / <alpha-value>)",
@@ -81,11 +80,36 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        signal: {
+          blue: "hsl(var(--signal-blue) / <alpha-value>)",
+          green: "hsl(var(--signal-green) / <alpha-value>)",
+          amber: "hsl(var(--signal-amber) / <alpha-value>)",
+          red: "hsl(var(--signal-red) / <alpha-value>)",
+          purple: "hsl(var(--signal-purple) / <alpha-value>)",
+        },
+        graphite: {
+          950: "hsl(220 16% 6%)",
+          900: "hsl(220 14% 8%)",
+          850: "hsl(220 12% 10%)",
+          800: "hsl(220 10% 12%)",
+          700: "hsl(220 10% 16%)",
+          600: "hsl(220 9% 22%)",
+          500: "hsl(220 8% 32%)",
+          400: "hsl(220 7% 46%)",
+          300: "hsl(220 8% 62%)",
+          200: "hsl(220 10% 78%)",
+          100: "hsl(220 13% 91%)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
+      },
+      backdropBlur: {
+        xs: "2px",
+        glass: "12px",
+        "glass-heavy": "16px",
       },
       keyframes: {
         "accordion-down": {
@@ -96,10 +120,20 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "0.4" },
+          "50%": { opacity: "1" },
+        },
+        "signal-ping": {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "75%, 100%": { transform: "scale(2)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "signal-ping": "signal-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite",
       },
     },
   },

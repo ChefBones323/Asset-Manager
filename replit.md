@@ -188,7 +188,14 @@ A human-supervised AI execution control plane with approval workflows and transp
 - `SESSION_SECRET` - Express session secret
 - `DATABASE_URL` - PostgreSQL connection string
 
-## Design
-- Deep blue/indigo dark theme with cyan accent (primary: 199 89% 48%)
+## Design — Industrial-Glass Dark Graphite
+- Dark graphite palette: background Gray-950 `hsl(220 16% 6%)`, card Gray-900 `hsl(220 14% 8%)`, borders `hsl(220 10% 14%)`
+- Primary accent: electric blue `hsl(210 100% 56%)`
+- Signal colors: blue (content), green (trust), amber (warnings), red (errors), purple (governance) — defined as `--signal-*` CSS variables
+- Graphite scale: 950-100 steps in Tailwind config for fine-grained panel differentiation
+- Industrial-Glass aesthetic: `.glass-panel` / `.glass-panel-elevated` / `.glass-inset` CSS component classes with `backdrop-blur(12px)` and `border-opacity-10`
+- Mission Control common components: `client/src/components/common/Card.tsx` (GlassCard), `Metric.tsx` (Metric/MetricRow), `Modal.tsx` (GlassModal)
 - Font stack: Inter (sans), Merriweather (serif), JetBrains Mono (mono)
+- Mono label utility: `.mono-label` = JetBrains Mono 11px uppercase tracking-wide muted
+- Signal dots: `.signal-dot-blue/green/amber/red/purple` with glow shadow
 - Terminal-inspired execution feed with green-on-dark log display

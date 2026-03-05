@@ -1,0 +1,566 @@
+You are building a production-grade operator interface called CIVIC MISSION CONTROL for a deterministic event-sourced Social Civic Infrastructure Platform.
+
+This platform is NOT a typical social media app.
+It is a governed civic infrastructure system with:
+
+• Event Store (append-only ledger)
+• Execution Engine
+• Worker System
+• Governance Proposal Engine
+• Feed Ranking Policies
+• Trust Graph Reputation System
+• Deterministic projections
+
+Your task is to build the complete frontend control environment that allows operators, moderators, developers, and civic administrators to control and observe the system.
+
+The UI must feel like a hybrid between:
+
+NASA mission control
+Bloomberg terminal
+VSCode command palette
+Raycast productivity tools
+
+The interface must be keyboard-first, event-driven, and extremely transparent.
+
+The result should feel like the operating system for civic information infrastructure.
+
+⸻
+
+PRIMARY OBJECTIVES
+
+Build a full Mission Control Interface including:
+
+• Civic Command Palette (keyboard command interface)
+• Mission Control dashboard
+• Governance console
+• Feed ranking debugger
+• Trust graph visualizer
+• Event explorer
+• Infrastructure worker monitor
+
+The system must allow operators to:
+
+propose governance actions
+simulate feed policies
+inspect event streams
+debug feed ranking
+monitor workers
+analyze trust networks
+
+Everything must be observable and explainable.
+
+⸻
+
+TECH STACK
+
+Use the following technologies:
+
+React
+Vite
+TypeScript
+TailwindCSS
+DaisyUI
+Framer Motion
+Lucide React Icons
+React Query
+Zustand (state management)
+WebSockets for live events
+D3.js for graph visualization
+
+Use a dark control-room design aesthetic.
+
+⸻
+
+PROJECT STRUCTURE
+
+Create the following structure.
+
+src/
+
+components/
+layout/
+SystemTopBar.tsx
+InfrastructurePanel.tsx
+EventPulsePanel.tsx
+StatusBar.tsx
+
+feed/
+VerifiedPostCard.tsx
+FeedPolicyBar.tsx
+ProvenanceModal.tsx
+
+governance/
+ProposalCard.tsx
+PolicyRegistry.tsx
+VotingPanel.tsx
+PolicySimulator.tsx
+
+debugger/
+FeedScoreInspector.tsx
+RankingBreakdownChart.tsx
+
+trust/
+TrustGraph.tsx
+TrustNodePanel.tsx
+
+workers/
+WorkerRegistry.tsx
+LeaseMonitor.tsx
+QueueMonitor.tsx
+
+palette/
+CommandPalette.tsx
+CommandRegistry.ts
+CommandParser.ts
+CommandResultRenderer.tsx
+
+events/
+EventStream.tsx
+EventInspector.tsx
+
+common/
+Modal.tsx
+Card.tsx
+Metric.tsx
+Sparkline.tsx
+
+pages/
+
+MissionControl.tsx
+GovernanceConsole.tsx
+FeedDebugger.tsx
+TrustGraphView.tsx
+EventExplorer.tsx
+
+services/
+
+api.ts
+events.ts
+websocket.ts
+
+store/
+
+eventStore.ts
+uiState.ts
+
+⸻
+
+GLOBAL LAYOUT
+
+Create a Mission Control dashboard layout.
+
+⸻
+
+| System Top Bar |
+
+| Infrastructure | Civic Feed | Event Pulse |
+
+⸻
+
+| Status Bar |
+
+⸻
+
+This layout reflects the system pipeline:
+
+Infrastructure → Events → Feed → Observability
+
+⸻
+
+SYSTEM TOP BAR
+
+Display:
+
+System health
+Events per second
+Active policy version
+Worker count
+Replay status
+Global search
+
+Example UI:
+
+SYSTEM: HEALTHY
+EVENT RATE: 142/s
+ACTIVE POLICY: CivicBalanced_v3
+WORKERS: 12
+
+⸻
+
+LEFT PANEL — INFRASTRUCTURE
+
+Show system infrastructure components.
+
+Worker registry
+Lease monitor
+Queue depth
+Dead letter queue
+Projection status
+
+Worker cards must show:
+
+worker_id
+heartbeat animation
+current job
+retry count
+lease expiration
+
+Heartbeat colors:
+
+green = healthy
+amber = delayed
+red = stalled
+
+⸻
+
+CENTER PANEL — VERIFIED CIVIC FEED
+
+Render posts using projection API.
+
+Each post must include:
+
+Author
+Trust score
+Content
+Reaction counts
+Timestamp
+Verification badge
+
+The Verification Badge opens a modal displaying:
+
+event_id
+manifest_id
+proposal_creator
+proposal_approver
+policy_version
+
+Add a trust gradient border around posts.
+
+High trust = green glow
+Medium trust = neutral
+Low trust = muted
+
+⸻
+
+RIGHT PANEL — EVENT PULSE
+
+Create a real-time vertical event stream.
+
+Each event appears as a colored pulse dot.
+
+Color mapping:
+
+blue = content
+green = trust
+purple = governance
+orange = workers
+red = errors
+
+Clicking an event opens JSON inspector.
+
+Allow filtering by:
+
+event type
+actor id
+domain
+time range
+
+⸻
+
+STATUS BAR
+
+Display system metrics:
+
+events/sec
+queue depth
+worker utilization
+retry rate
+DLQ count
+
+Include sparkline charts.
+
+⸻
+
+CIVIC COMMAND PALETTE
+
+Implement a keyboard-driven command interface.
+
+Shortcut:
+
+CMD + K
+CTRL + K
+
+Opening the palette shows:
+
+⸻
+
+Civic Command Palette
+
+simulate feed ranking with higher trust weight
+
+⸻
+
+Results update as user types.
+
+The palette must support commands across domains:
+
+Governance
+Feed Ranking
+Trust Graph
+Infrastructure
+Event System
+Diagnostics
+
+⸻
+
+EXAMPLE COMMANDS
+
+Governance:
+
+create feed policy
+simulate feed policy
+propose governance vote
+approve proposal
+activate policy
+
+Infrastructure:
+
+show active workers
+check worker leases
+view queue depth
+inspect dead letter queue
+
+Events:
+
+inspect events
+filter events by actor
+filter events by domain
+replay projections
+
+Feed:
+
+explain feed ranking
+simulate ranking
+compare feed policies
+
+Trust:
+
+inspect user trust
+show trust graph
+trace endorsement path
+
+Diagnostics:
+
+system health
+projection lag
+diagnose worker failure
+
+⸻
+
+COMMAND EXECUTION PIPELINE
+
+Every command becomes a structured action.
+
+User Command
+↓
+Command Parser
+↓
+Intent Classifier
+↓
+Action Generator
+↓
+Execution Engine
+↓
+Event Store
+
+⸻
+
+COMMAND REGISTRY
+
+Implement registry pattern.
+
+Example:
+
+{
+id: “simulate_feed_policy”,
+category: “feed”,
+keywords: [“simulate”, “feed”],
+handler: simulateFeedPolicy
+}
+
+⸻
+
+NATURAL LANGUAGE SUPPORT
+
+Allow freeform input.
+
+Example:
+
+“why did this post outrank that one”
+
+The palette should route to Feed Debugger.
+
+⸻
+
+GOVERNANCE CONSOLE
+
+Create page:
+
+/governance
+
+Panels:
+
+Policy registry
+Proposal queue
+Voting dashboard
+Policy simulator
+
+Policies must display:
+
+policy version
+weights
+activation date
+hash id
+
+⸻
+
+FEED DEBUGGER
+
+Create page:
+
+/feed-debugger
+
+Allow selecting a post.
+
+Display ranking breakdown:
+
+recency contribution
+reaction contribution
+trust contribution
+policy modifier
+
+Visualize with stacked bar chart.
+
+⸻
+
+TRUST GRAPH VISUALIZER
+
+Create page:
+
+/trust-graph
+
+Use D3.js.
+
+Nodes = users
+Edges = interactions
+
+Node size = trust score
+Edge thickness = interaction strength
+
+Add filters:
+
+community cluster
+trust threshold
+time range
+
+⸻
+
+EVENT EXPLORER
+
+Create page:
+
+/events
+
+Allow querying event history.
+
+Filters:
+
+event type
+actor id
+domain
+timestamp
+
+Show raw JSON payloads.
+
+⸻
+
+REAL-TIME EVENT STREAM
+
+Use WebSockets.
+
+Architecture:
+
+Event Store
+↓
+Event Gateway
+↓
+WebSocket
+↓
+Client Event Bus
+↓
+UI Updates
+
+⸻
+
+ROLE MODES
+
+Citizen
+Moderator
+Operator
+Developer
+
+Citizen sees simple feed.
+
+Operators see infrastructure panels.
+
+Developers see manifests and event payloads.
+
+⸻
+
+VISUAL STYLE
+
+Dark graphite background
+
+Primary accent colors:
+
+electric blue
+soft green
+amber warning
+red error
+
+Typography:
+
+Inter
+JetBrains Mono for metrics
+
+⸻
+
+ANIMATIONS
+
+Use Framer Motion.
+
+Event pulses
+Feed updates
+Panel transitions
+Command palette opening
+
+Animations must be smooth but subtle.
+
+⸻
+
+GOAL
+
+This interface should feel like Mission Control for civic infrastructure.
+
+Operators should be able to:
+
+propose actions
+observe system behavior
+debug ranking
+inspect events
+govern policy
+analyze trust networks
+
+All in real time.
+
+Build a complete React application implementing this architecture.

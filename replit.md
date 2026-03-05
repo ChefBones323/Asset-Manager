@@ -111,6 +111,59 @@ A human-supervised AI execution control plane with approval workflows and transp
   python3 blueprint_update_github.py       # add missing capabilities (idempotent)
   ```
 
+## Social Civic Infrastructure Engine (app/social_platform/)
+- **Architecture**: Deterministic event sourcing — all mutations flow through ExecutionEngine → EventStore → ProjectionEngine
+- **Stack**: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL
+- **Entry point**: `app/social_platform/main.py` (FastAPI app, 31 routes)
+- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (28 unit tests)
+
+### Core Invariants
+1. Approval required before execution
+2. Lease ownership required for state mutation
+3. Only one active lease per job
+4. Deterministic manifests (SHA-256 checksums)
+5. Domain isolation
+6. Full audit logs
+7. Replayable state from event logs
+
+### Phase 1 — Platform Foundation
+- `app/social_platform/infrastructure/event_store.py` — Append-only event ledger (events table: event_id, domain, event_type, actor_id, payload JSONB, manifest_id, execution_id, timestamp, signature)
+- `app/social_platform/infrastructure/projection_engine.py` — Processes events into projection tables
+- `app/social_platform/infrastructure/redis_queue.py` — Redis queue with in-memory fallback
+- `app/social_platform/infrastructure/worker_runtime.py` — Worker lifecycle management
+- `app/social_platform/platform/execution_engine.py` — Orchestrates proposal→approval→manifest→lease→execute→audit
+- `app/social_platform/platform/proposal_service.py` — Proposal CRUD
+- `app/social_platform/platform/approval_service.py` — Approval/rejection with enforcement
+- `app/social_platform/platform/manifest_compiler.py` — Deterministic manifest generation
+- `app/social_platform/platform/lease_manager.py` — Lease acquire/release/renew (one per job)
+- `app/social_platform/platform/audit_logger.py` — Full audit trail
+- `app/social_platform/platform/replay_engine.py` — Rebuild state from events
+
+### Phase 2 — Content Domain
+- Content service (create_post, create_comment, add_reaction, share_post) — all generate proposals
+- Events: content_created, comment_created, reaction_added, post_shared
+- Projections: posts, comments, threads, reaction_summary
+- Routes: POST /content/post, /content/comment, /content/react, /content/share
+
+### Phase 3 — Feed Engine
+- Deterministic ranking: timestamp × weight + reaction_count × weight + trust_score × weight + policy_weight
+- Feed index table: feed_owner, content_id, policy_scope, distribution_time
+- Policy engine with compiler, executor, simulator
+- Route: GET /feed/user
+
+### Phase 4 — Trust, Delegation, Knowledge
+- Trust system: trust_events + trust_profiles, scores clamped [-100, 100], recomputed from events
+- Delegation graph: max depth 3, loop prevention
+- Knowledge system: artifacts + citations, knowledge_score recomputed
+- Routes: /api/trust/* endpoints
+
+### Phase 5 — Governance + Admin
+- governance_proposals + governance_votes tables
+- Weighted voting with quorum and approval threshold
+- Approved proposals trigger execution engine
+- Admin dashboards: governance, moderation, policy management
+- Routes: /api/governance/* endpoints
+
 ## Watchdog (Autonomous)
 - Runs every 5 seconds in server startup
 - Detects expired leases (leaseExpiresAt < now) and auto-escalates

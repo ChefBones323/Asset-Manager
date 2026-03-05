@@ -1,0 +1,453 @@
+You are an autonomous senior platform engineer working inside an EXISTING production application.
+
+Your task is to implement a new subsystem called:
+
+SOCIAL CIVIC INFRASTRUCTURE ENGINE
+
+This system transforms the application into a deterministic civic information network.
+
+You must build the system in sequential phases and validate each phase before continuing.
+
+DO NOT attempt to build the entire system in a single step.
+
+--------------------------------------------------
+
+GLOBAL ARCHITECTURE RULES (GUARDRAIL)
+
+This subsystem uses deterministic event sourcing.
+
+You must preserve these invariants:
+
+1. approval required before execution
+2. lease ownership required for state mutation
+3. only one active lease per job
+4. deterministic manifests
+5. domain isolation
+6. full audit logs
+7. replayable state from event logs
+
+Never write state directly to projection tables.
+
+All mutations must originate from:
+
+ExecutionEngine → EventStore → ProjectionEngine
+
+Never replace the event architecture with CRUD patterns.
+
+--------------------------------------------------
+
+PROTECTED ARCHITECTURE MODULES
+
+The following modules are core infrastructure.
+
+Do NOT refactor them automatically once created:
+
+app/social_platform/platform/
+app/social_platform/infrastructure/
+app/social_platform/workers/
+app/social_platform/models/
+
+These implement the control plane and event system.
+
+--------------------------------------------------
+
+TARGET STACK
+
+Use these technologies unless the project already defines alternatives:
+
+Python 3.11  
+FastAPI  
+PostgreSQL  
+Redis  
+SQLAlchemy ORM  
+Pydantic  
+Alembic migrations  
+Async workers  
+
+--------------------------------------------------
+
+CREATE ROOT MODULE
+
+All new system components must exist inside:
+
+app/social_platform/
+
+Never modify existing modules unless router integration is required.
+
+--------------------------------------------------
+
+PHASE 1 — PLATFORM FOUNDATION
+
+Goal: deterministic execution infrastructure.
+
+Create modules:
+
+app/social_platform/platform/
+
+execution_engine.py  
+proposal_service.py  
+approval_service.py  
+manifest_compiler.py  
+lease_manager.py  
+audit_logger.py  
+replay_engine.py  
+
+app/social_platform/infrastructure/
+
+event_store.py  
+projection_engine.py  
+redis_queue.py  
+worker_runtime.py  
+
+app/social_platform/models/
+
+base.py  
+event_models.py  
+
+app/social_platform/database/
+
+schema.sql  
+
+--------------------------------------------------
+
+EVENT STORE
+
+Create append-only event ledger.
+
+events table:
+
+event_id UUID PRIMARY KEY  
+domain TEXT  
+event_type TEXT  
+actor_id UUID  
+payload JSONB  
+manifest_id UUID  
+execution_id UUID  
+timestamp TIMESTAMPTZ  
+signature TEXT  
+
+Rules:
+
+updates forbidden  
+deletes forbidden  
+
+Implement EventStore methods:
+
+append_event()  
+get_events()  
+get_events_by_domain()  
+replay_events()  
+
+--------------------------------------------------
+
+EXECUTION ENGINE
+
+Create deterministic execution lifecycle:
+
+proposal → approval → manifest → lease → worker execution → audit log
+
+Components:
+
+ProposalService  
+ApprovalService  
+ManifestCompiler  
+LeaseManager  
+AuditLogger  
+ExecutionEngine  
+
+--------------------------------------------------
+
+VALIDATION CHECKPOINT
+
+Stop and verify:
+
+• server runs  
+• event store loads  
+• execution engine imports  
+• existing application still works  
+
+If successful continue.
+
+--------------------------------------------------
+
+PHASE 2 — CONTENT DOMAIN
+
+Create modules:
+
+domains/social/
+
+content_service.py  
+discussion_service.py  
+
+workers/
+
+content_worker.py  
+interaction_worker.py  
+
+models/
+
+content_models.py  
+
+api/
+
+routes_content.py  
+
+--------------------------------------------------
+
+CONTENT FEATURES
+
+create_post  
+create_comment  
+add_reaction  
+share_post  
+
+Events:
+
+content_created  
+comment_created  
+reaction_added  
+post_shared  
+
+Projection tables:
+
+posts  
+comments  
+threads  
+reaction_summary  
+
+Endpoints:
+
+POST /content/post  
+POST /content/comment  
+POST /content/react  
+
+Endpoints must generate proposals instead of direct writes.
+
+--------------------------------------------------
+
+VALIDATION CHECKPOINT
+
+Verify:
+
+• events emitted  
+• projections update  
+• endpoints work  
+
+Continue if valid.
+
+--------------------------------------------------
+
+PHASE 3 — FEED ENGINE
+
+Create modules:
+
+domains/social/feed_service.py  
+
+workers/
+
+feed_index_worker.py  
+feed_generate_worker.py  
+
+models/feed_models.py  
+
+api/routes_feed.py  
+
+policies/
+
+feed_policy_engine.py  
+policy_compiler.py  
+policy_executor.py  
+policy_simulator.py  
+
+--------------------------------------------------
+
+FEED INDEX TABLE
+
+feed_owner UUID  
+content_id UUID  
+policy_scope TEXT  
+distribution_time TIMESTAMP  
+
+--------------------------------------------------
+
+FEED GENERATION
+
+Worker must:
+
+load policy manifest  
+retrieve feed index entries  
+compute deterministic ranking  
+return ordered feed  
+
+Ranking inputs allowed:
+
+timestamp  
+reaction counts  
+trust score  
+policy weight  
+
+Never introduce non-deterministic algorithms.
+
+--------------------------------------------------
+
+VALIDATION CHECKPOINT
+
+Verify:
+
+GET /feed/user returns deterministic results.
+
+--------------------------------------------------
+
+PHASE 4 — TRUST + DELEGATION + KNOWLEDGE
+
+Create modules:
+
+domains/social/
+
+trust_service.py  
+delegation_service.py  
+knowledge_service.py  
+
+workers/
+
+trust_compute_worker.py  
+delegation_worker.py  
+knowledge_worker.py  
+
+models/
+
+trust_models.py  
+delegation_models.py  
+knowledge_models.py  
+
+api/routes_trust.py  
+
+--------------------------------------------------
+
+TRUST SYSTEM
+
+trust_events table  
+
+trust_profiles table  
+
+TrustComputeWorker recomputes reputation from events.
+
+--------------------------------------------------
+
+DELEGATION GRAPH
+
+delegations table  
+
+Prevent loops.  
+Max depth = 3.
+
+--------------------------------------------------
+
+KNOWLEDGE SYSTEM
+
+knowledge_artifacts table  
+citations table  
+
+Worker recomputes knowledge_score.
+
+--------------------------------------------------
+
+VALIDATION CHECKPOINT
+
+Verify trust scores recompute correctly.
+
+--------------------------------------------------
+
+PHASE 5 — GOVERNANCE + ADMIN
+
+Create modules:
+
+domains/social/governance_service.py  
+
+workers/
+
+moderation_worker.py  
+policy_worker.py  
+
+models/governance_models.py  
+
+api/routes_governance.py  
+
+admin/
+
+governance_dashboard.py  
+moderation_dashboard.py  
+policy_dashboard.py  
+
+--------------------------------------------------
+
+GOVERNANCE TABLES
+
+governance_proposals  
+governance_votes  
+
+Approved proposals trigger execution engine actions.
+
+--------------------------------------------------
+
+ADMIN DASHBOARDS
+
+Create simple admin UI for:
+
+policy management  
+moderation review  
+governance monitoring  
+
+--------------------------------------------------
+
+OBSERVABILITY
+
+Implement structured logging.
+
+Log:
+
+execution lifecycle  
+worker execution  
+feed ranking  
+policy evaluation  
+trust computation  
+
+--------------------------------------------------
+
+FINAL VALIDATION
+
+Confirm:
+
+• subsystem integrates with existing app  
+• routers registered  
+• workers can run  
+• projections rebuild from event replay  
+• feeds deterministic  
+• trust scores computed  
+• governance proposals executable  
+
+--------------------------------------------------
+
+TESTING
+
+Generate unit tests for:
+
+event store  
+execution engine  
+feed ranking  
+trust computation  
+
+--------------------------------------------------
+
+FINAL OBJECTIVE
+
+Produce a production-ready subsystem that enables:
+
+governed content creation  
+deterministic social feeds  
+trust and reputation graphs  
+delegated authority networks  
+knowledge verification  
+transparent governance  
+
+Build the system sequentially and pause at each validation checkpoint.

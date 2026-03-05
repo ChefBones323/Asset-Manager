@@ -35,3 +35,34 @@ class Event(Base):
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
             "signature": self.signature,
         }
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    audit_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    domain = Column(String(255), nullable=False, index=True)
+    event_type = Column(String(255), nullable=False)
+    actor_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    resource_type = Column(String(255), nullable=True)
+    resource_id = Column(String(255), nullable=True, index=True)
+    summary = Column(Text, nullable=True)
+    timestamp = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self):
+        return {
+            "audit_id": str(self.audit_id),
+            "event_id": str(self.event_id),
+            "domain": self.domain,
+            "event_type": self.event_type,
+            "actor_id": str(self.actor_id),
+            "resource_type": self.resource_type,
+            "resource_id": self.resource_id,
+            "summary": self.summary,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+        }

@@ -115,7 +115,7 @@ A human-supervised AI execution control plane with approval workflows and transp
 - **Architecture**: Deterministic event sourcing — all mutations flow through ExecutionEngine → EventStore → ProjectionEngine
 - **Stack**: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL
 - **Entry point**: `app/social_platform/main.py` (FastAPI app, 31 routes)
-- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (28 unit tests)
+- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (48 unit tests)
 
 ### Core Invariants
 1. Approval required before execution
@@ -127,10 +127,11 @@ A human-supervised AI execution control plane with approval workflows and transp
 7. Replayable state from event logs
 
 ### Phase 1 — Platform Foundation
-- `app/social_platform/infrastructure/event_store.py` — Append-only event ledger (events table: event_id, domain, event_type, actor_id, payload JSONB, manifest_id, execution_id, timestamp, signature)
+- `app/social_platform/infrastructure/event_store.py` — Append-only event ledger with transactional dual-write (events + audit_logs in single commit)
 - `app/social_platform/infrastructure/projection_engine.py` — Processes events into projection tables
 - `app/social_platform/infrastructure/redis_queue.py` — Redis queue with in-memory fallback
-- `app/social_platform/infrastructure/worker_runtime.py` — Worker lifecycle management
+- `app/social_platform/infrastructure/worker_runtime.py` — Worker lifecycle with Pydantic manifest validation (WorkerManifest schema); invalid manifests immediately transition job to failed
+- `app/social_platform/models/event_models.py` — Event + AuditLog SQLAlchemy models (audit_logs references events via event_id FK)
 - `app/social_platform/platform/execution_engine.py` — Orchestrates proposal→approval→manifest→lease→execute→audit
 - `app/social_platform/platform/proposal_service.py` — Proposal CRUD
 - `app/social_platform/platform/approval_service.py` — Approval/rejection with enforcement
@@ -148,8 +149,8 @@ A human-supervised AI execution control plane with approval workflows and transp
 ### Phase 3 — Feed Engine
 - Deterministic ranking: timestamp × weight + reaction_count × weight + trust_score × weight + policy_weight
 - Feed index table: feed_owner, content_id, policy_scope, distribution_time
-- Policy engine with compiler, executor, simulator
-- Route: GET /feed/user
+- Policy engine with compiler, executor, simulator (simulate_ranking: dry-run ranking without DB commits, returns computed_score + position_changes + is_dry_run)
+- Routes: GET /feed/user, POST /feed/simulate (dry-run ranking)
 
 ### Phase 4 — Trust, Delegation, Knowledge
 - Trust system: trust_events + trust_profiles, scores clamped [-100, 100], recomputed from events

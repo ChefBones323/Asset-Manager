@@ -44,7 +44,7 @@ def get_user_feed(
 @router.post("/simulate")
 def simulate_policy(request: PolicySimulationRequest):
     simulator = PolicySimulator()
-    result = simulator.simulate_policy(
+    result = simulator.simulate_ranking(
         policy_name=request.policy_name,
         rules=request.rules,
         feed_entries=request.feed_entries,

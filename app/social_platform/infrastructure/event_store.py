@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
-from app.social_platform.models.event_models import Event
+from app.social_platform.models.event_models import Event, AuditLog
 from app.social_platform.models.base import SessionLocal
 
 
@@ -30,18 +30,35 @@ class EventStore:
     ) -> Event:
         session = self._get_session()
         try:
+            now = datetime.now(timezone.utc)
+            event_id = uuid.uuid4()
+
             event = Event(
-                event_id=uuid.uuid4(),
+                event_id=event_id,
                 domain=domain,
                 event_type=event_type,
                 actor_id=actor_id,
                 payload=payload,
                 manifest_id=manifest_id,
                 execution_id=execution_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=now,
                 signature=signature,
             )
+
+            audit_log = AuditLog(
+                audit_id=uuid.uuid4(),
+                event_id=event_id,
+                domain=domain,
+                event_type=event_type,
+                actor_id=actor_id,
+                resource_type=payload.get("resource_type", domain),
+                resource_id=str(payload.get("resource_id", payload.get("proposal_id", ""))),
+                summary=f"{event_type} by {actor_id}",
+                timestamp=now,
+            )
+
             session.add(event)
+            session.add(audit_log)
             session.commit()
             session.refresh(event)
             return event
@@ -88,6 +105,28 @@ class EventStore:
                 .offset(offset)
                 .limit(limit)
             )
+            return query.all()
+        finally:
+            if self._should_close():
+                session.close()
+
+    def get_audit_logs(
+        self,
+        domain: Optional[str] = None,
+        actor_id: Optional[uuid.UUID] = None,
+        resource_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[AuditLog]:
+        session = self._get_session()
+        try:
+            query = session.query(AuditLog)
+            if domain:
+                query = query.filter(AuditLog.domain == domain)
+            if actor_id:
+                query = query.filter(AuditLog.actor_id == actor_id)
+            if resource_id:
+                query = query.filter(AuditLog.resource_id == resource_id)
+            query = query.order_by(AuditLog.timestamp.desc()).limit(limit)
             return query.all()
         finally:
             if self._should_close():

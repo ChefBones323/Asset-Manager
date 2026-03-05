@@ -2,9 +2,48 @@ import uuid
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Optional, Callable, Dict, Any, List
+from typing import Optional, Callable, Dict, Any, List, Literal
+
+from pydantic import BaseModel, Field, field_validator, ValidationError
 
 from app.social_platform.infrastructure.redis_queue import RedisQueue
+
+
+class ManifestStep(BaseModel):
+    step_id: str = Field(..., min_length=1)
+    order: int = Field(..., ge=0)
+    operation: str = Field(..., min_length=1)
+    description: str = ""
+    params: dict = Field(default_factory=dict)
+
+
+class WorkerManifest(BaseModel):
+    manifest_id: str = Field(..., min_length=1)
+    proposal_id: str = Field(..., min_length=1)
+    domain: str = Field(..., min_length=1)
+    action: str = Field(..., min_length=1)
+    actor_id: str = Field(..., min_length=1)
+    payload: dict = Field(default_factory=dict)
+    steps: List[ManifestStep] = Field(..., min_length=1)
+    checksum: str = Field(..., min_length=1)
+
+    @field_validator("steps")
+    @classmethod
+    def steps_must_be_ordered(cls, v: List[ManifestStep]) -> List[ManifestStep]:
+        orders = [s.order for s in v]
+        if orders != sorted(orders):
+            raise ValueError("steps must be in ascending order")
+        if len(set(orders)) != len(orders):
+            raise ValueError("step orders must be unique")
+        return v
+
+
+class ManifestValidationError(Exception):
+    def __init__(self, manifest_id: str, errors: list):
+        self.manifest_id = manifest_id
+        self.errors = errors
+        detail = "; ".join(str(e) for e in errors[:5])
+        super().__init__(f"Manifest {manifest_id} failed validation: {detail}")
 
 
 class WorkerRuntime:
@@ -13,6 +52,32 @@ class WorkerRuntime:
         self._queues: Dict[str, RedisQueue] = {}
         self._running = False
         self._threads: Dict[str, threading.Thread] = {}
+        self._job_statuses: Dict[str, Dict[str, Any]] = {}
+
+    def validate_manifest(self, manifest: dict) -> WorkerManifest:
+        manifest_id = manifest.get("manifest_id", "<unknown>")
+        try:
+            return WorkerManifest.model_validate(manifest)
+        except ValidationError as exc:
+            errors = exc.errors()
+            self._transition_job(manifest_id, "failed", errors=errors)
+            raise ManifestValidationError(manifest_id, errors) from exc
+
+    def _transition_job(
+        self,
+        manifest_id: str,
+        status: str,
+        errors: Optional[list] = None,
+    ):
+        self._job_statuses[manifest_id] = {
+            "manifest_id": manifest_id,
+            "status": status,
+            "errors": errors,
+            "transitioned_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def get_job_status(self, manifest_id: str) -> Optional[dict]:
+        return self._job_statuses.get(manifest_id)
 
     def register_worker(
         self,
@@ -39,15 +104,28 @@ class WorkerRuntime:
         if not worker:
             raise ValueError(f"Worker {worker_id} not found")
 
+        manifest = task.get("manifest")
+        if manifest:
+            validated = self.validate_manifest(manifest)
+            self._transition_job(validated.manifest_id, "running")
+
         handler = worker["handler"]
         worker["status"] = "busy"
+        manifest_id = manifest.get("manifest_id", "<unknown>") if manifest else "<unknown>"
         try:
             result = handler(task)
             worker["tasks_processed"] += 1
             worker["status"] = "idle"
+            if manifest:
+                self._transition_job(manifest_id, "completed")
             return result
+        except ManifestValidationError:
+            worker["status"] = "idle"
+            raise
         except Exception as exc:
             worker["status"] = "error"
+            if manifest:
+                self._transition_job(manifest_id, "failed", errors=[str(exc)])
             raise
 
     def submit_task(self, queue_name: str, task: dict) -> bool:
@@ -97,6 +175,8 @@ class WorkerRuntime:
             if task:
                 try:
                     self.execute_task(worker_id, task)
+                except ManifestValidationError:
+                    pass
                 except Exception:
                     pass
             else:

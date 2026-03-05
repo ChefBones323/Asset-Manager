@@ -24,9 +24,9 @@ class TestEventStore:
             payload={"key": "value"},
         )
 
-        session.add.assert_called_once()
+        assert session.add.call_count == 2
         session.commit.assert_called_once()
-        added_event = session.add.call_args[0][0]
+        added_event = session.add.call_args_list[0][0][0]
         assert isinstance(added_event, Event)
         assert added_event.domain == "test"
         assert added_event.event_type == "test_event"
@@ -110,7 +110,7 @@ class TestEventStore:
             signature="test_sig",
         )
 
-        added_event = session.add.call_args[0][0]
+        added_event = session.add.call_args_list[0][0][0]
         assert added_event.manifest_id == manifest_id
         assert added_event.execution_id == execution_id
         assert added_event.signature == "test_sig"

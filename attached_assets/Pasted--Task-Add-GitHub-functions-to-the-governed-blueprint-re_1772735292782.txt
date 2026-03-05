@@ -1,0 +1,140 @@
+# Task: Add GitHub functions to the governed blueprint registry
+
+# Context:
+# - The repository uses a governed workflow (proposal → blueprint submission → invariant review → approval → merge).
+# - The capabilities registry lives at `registry/capabilities.json`.
+# - We need to add several GitHub capabilities while preserving existing entries and avoiding duplicates.
+
+# Step‑by‑step instructions:
+
+# 1. Create a new branch from `main` for this change (e.g. "feature/add-github-functions").
+# 2. In the repository root, add a new Python script named `blueprint_update_github.py` with the following contents:
+
+"""
+blueprint_update_github.py
+==========================
+
+This script updates a governed blueprint registry to include new GitHub functions.
+It is designed to be run from the root of the repository.
+
+The blueprint registry is assumed to live in a JSON file located at
+`registry/capabilities.json`. The file is expected to contain a top‑level
+object with a `capabilities` list, where each entry describes a capability.
+The script adds any missing GitHub functions and writes the updated file back.
+"""
+
+import json
+from pathlib import Path
+
+def load_registry(path: Path) -> dict:
+    """Load the capabilities registry from disk or initialise a new one."""
+    if path.exists():
+        with path.open("r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+                if not isinstance(data, dict):
+                    raise ValueError("registry/capabilities.json must contain a JSON object")
+                if "capabilities" not in data or not isinstance(data["capabilities"], list):
+                    data["capabilities"] = []
+                return data
+            except json.JSONDecodeError as e:
+                raise RuntimeError(f"Failed to parse {path}: {e}")
+    else:
+        return {"capabilities": []}
+
+def save_registry(path: Path, registry: dict) -> None:
+    """Write the capabilities registry back to disk."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(registry, f, indent=2, sort_keys=True)
+
+def add_new_capabilities(registry: dict, new_capabilities: list) -> bool:
+    """Add new capabilities if not already present."""
+    existing_ids = {c.get("id") for c in registry.get("capabilities", [])}
+    added_any = False
+    for cap in new_capabilities:
+        cap_id = cap.get("id")
+        if cap_id and cap_id not in existing_ids:
+            registry["capabilities"].append(cap)
+            existing_ids.add(cap_id)
+            added_any = True
+    return added_any
+
+def main() -> None:
+    # Define new GitHub capabilities
+    new_capabilities = [
+        {
+            "id": "github_check_repo_initialized",
+            "name": "GitHub: Check Repository Initialized",
+            "type": "github",
+            "description": "Check if a GitHub repository has been initialised (presence of an initial commit and essential files).",
+            "function": "check_repo_initialized"
+        },
+        {
+            "id": "github_compare_commits",
+            "name": "GitHub: Compare Commits",
+            "type": "github",
+            "description": "Compare two commits or refs within a repository, returning per‑file change statistics and metadata.",
+            "function": "compare_commits"
+        },
+        {
+            "id": "github_fetch_file",
+            "name": "GitHub: Fetch File",
+            "type": "github",
+            "description": "Fetch the contents of a file from a repository at a specific ref (branch, tag, or commit).",
+            "function": "fetch_file"
+        },
+        {
+            "id": "github_fetch_commit",
+            "name": "GitHub: Fetch Commit",
+            "type": "github",
+            "description": "Retrieve metadata and details of a specific commit within a repository.",
+            "function": "fetch_commit"
+        },
+        {
+            "id": "github_search_repository",
+            "name": "GitHub: Search Repository Files",
+            "type": "github",
+            "description": "Search within a repository for files matching specific keywords or patterns.",
+            "function": "search"
+        },
+        {
+            "id": "github_create_pull_request",
+            "name": "GitHub: Create Pull Request",
+            "type": "github",
+            "description": "Create a new pull request to merge changes from one branch into another.",
+            "function": "create_pull_request"
+        },
+        {
+            "id": "github_merge_pull_request",
+            "name": "GitHub: Merge Pull Request",
+            "type": "github",
+            "description": "Merge an existing pull request into its target branch, adhering to repository policies.",
+            "function": "merge_pull_request"
+        }
+    ]
+
+    repo_root = Path(__file__).resolve().parent
+    registry_path = repo_root / "registry" / "capabilities.json"
+    registry = load_registry(registry_path)
+    added = add_new_capabilities(registry, new_capabilities)
+    if added:
+        save_registry(registry_path, registry)
+        print(f"Updated {registry_path} with new GitHub capabilities.")
+    else:
+        print("No new capabilities were added; the registry already contains all specified GitHub functions.")
+
+if __name__ == "__main__":
+    main()
+
+# 3. Ensure the `registry` directory exists. If `registry/capabilities.json` does not exist, the script will create it with an empty capabilities list.
+# 4. From the repository root, run:  python blueprint_update_github.py  to update `registry/capabilities.json`.
+# 5. Inspect `registry/capabilities.json` to verify that the new GitHub entries have been added and no existing entries were duplicated.
+# 6. Stage and commit both `blueprint_update_github.py` and the updated `registry/capabilities.json` with a commit message such as:
+#    "Add GitHub capabilities to governed blueprint registry"
+# 7. Push your branch to the remote repository and open a pull request for review, following the governed workflow. Do not merge directly into `main`.
+# 8. Once the change is approved, the pull request can be merged into `main`.
+
+# Notes:
+# - Only the capabilities registry is modified; do not alter other blueprint files.
+# - Running the script is idempotent; if the capabilities already exist, it will not re‑add them.

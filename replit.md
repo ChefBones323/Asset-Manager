@@ -27,7 +27,9 @@ A human-supervised AI execution control plane with approval workflows and transp
 - `server/routes.ts` - API routes (auth, jobs CRUD, worker API, heartbeat, destructive approval)
 - `server/storage.ts` - Database storage layer (includes lease management, expired/runaway queries)
 - `server/index.ts` - Server startup with autonomous watchdog interval (every 5s)
-- `server/proposal-builder.ts` - Simulated cognitive engine that generates proposals from intents
+- `server/proposal-builder.ts` - Simulated cognitive engine that generates proposals from intents (legacy, no longer used in job creation)
+- `blueprint_update_github.py` - Script to add GitHub capabilities to the governed blueprint registry (idempotent)
+- `registry/capabilities.json` - Governed blueprint capability registry (7 GitHub functions)
 - `server/seed.ts` - Database seeding with sample jobs
 - `server/db.ts` - Database connection (Neon/PostgreSQL)
 - `client/src/pages/dashboard.tsx` - Main dashboard with proposal creation, approval, governance tab, and live feed

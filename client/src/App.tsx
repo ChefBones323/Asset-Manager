@@ -5,9 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
+import { CommandPalette } from "@/components/palette/CommandPalette";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
-import DashboardPage from "@/pages/dashboard";
+import MissionControl from "@/pages/MissionControl";
+import GovernanceConsole from "@/pages/GovernanceConsole";
+import FeedDebugger from "@/pages/FeedDebugger";
+import TrustGraphView from "@/pages/TrustGraphView";
+import EventExplorer from "@/pages/EventExplorer";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -33,7 +38,11 @@ function ProtectedRoute({ component: Component }: { component: () => JSX.Element
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={() => <ProtectedRoute component={DashboardPage} />} />
+      <Route path="/" component={() => <ProtectedRoute component={MissionControl} />} />
+      <Route path="/governance" component={() => <ProtectedRoute component={GovernanceConsole} />} />
+      <Route path="/feed-debugger" component={() => <ProtectedRoute component={FeedDebugger} />} />
+      <Route path="/trust-graph" component={() => <ProtectedRoute component={TrustGraphView} />} />
+      <Route path="/events" component={() => <ProtectedRoute component={EventExplorer} />} />
       <Route path="/login" component={LoginPage} />
       <Route component={NotFound} />
     </Switch>
@@ -46,6 +55,7 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <Toaster />
+          <CommandPalette />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

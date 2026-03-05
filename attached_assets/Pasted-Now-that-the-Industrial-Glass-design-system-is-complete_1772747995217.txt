@@ -1,0 +1,265 @@
+Now that the Industrial-Glass design system is complete, we will build the core Mission Control interfaces on top of it.
+
+Use the existing components:
+
+GlassCard
+Metric
+GlassModal
+glass-panel
+glass-panel-elevated
+glass-inset
+signal color tokens
+mono-label typography
+
+Do NOT modify the design system. Build the application UI using these primitives.
+
+--------------------------------------------------
+
+PHASE 1 — CIVIC COMMAND PALETTE
+
+Create a global keyboard command palette.
+
+Shortcut:
+
+CMD + K
+CTRL + K
+
+Component location:
+
+components/palette/CommandPalette.tsx
+
+Features:
+
+Floating glass modal
+Keyboard navigation
+Real-time fuzzy search
+Command preview
+Keyboard execution
+
+Command categories:
+
+Governance
+Feed
+Trust
+Infrastructure
+Events
+Diagnostics
+
+Example commands:
+
+simulate feed policy
+create governance proposal
+show active workers
+inspect events
+explain feed ranking
+replay projections
+system health
+inspect trust user
+
+Command results should show inside the palette.
+
+--------------------------------------------------
+
+PHASE 2 — MISSION CONTROL DASHBOARD
+
+Create page:
+
+pages/MissionControl.tsx
+
+Layout:
+
+------------------------------------------------
+
+| SystemTopBar |
+
+------------------------------------------------
+
+| Infrastructure | CivicFeed | EventPulse |
+
+------------------------------------------------
+
+| StatusBar |
+
+------------------------------------------------
+
+Use glass-panel containers for each region.
+
+--------------------------------------------------
+
+INFRASTRUCTURE PANEL
+
+Components:
+
+WorkerRegistry
+LeaseMonitor
+QueueDepth
+DeadLetterQueue
+
+Use Metric components for system stats.
+
+Worker cards must show:
+
+worker_id
+heartbeat signal-dot
+current job
+lease timer
+
+--------------------------------------------------
+
+EVENT PULSE PANEL
+
+Create a real-time event stream component.
+
+components/events/EventPulsePanel.tsx
+
+Display vertical stream of events.
+
+Each event is a glowing signal-dot.
+
+Colors:
+
+blue = content
+green = trust
+purple = governance
+orange = workers
+red = errors
+
+Clicking an event opens GlassModal showing JSON payload.
+
+--------------------------------------------------
+
+CIVIC FEED
+
+Create VerifiedPostCard component.
+
+Display:
+
+author
+trust score
+content
+reactions
+timestamp
+verification badge
+
+Verification badge opens ProvenanceModal showing:
+
+event_id
+manifest_id
+proposal_creator
+policy_version
+
+--------------------------------------------------
+
+STATUS BAR
+
+Use MetricRow layout.
+
+Display:
+
+EVENT RATE
+WORKERS
+QUEUE DEPTH
+RETRY RATE
+DLQ COUNT
+
+Use sparkline charts.
+
+--------------------------------------------------
+
+PHASE 3 — GOVERNANCE CONSOLE
+
+Create page:
+
+pages/GovernanceConsole.tsx
+
+Panels:
+
+PolicyRegistry
+ProposalQueue
+VotingDashboard
+PolicySimulator
+
+Use glass-panel-elevated for proposals.
+
+--------------------------------------------------
+
+PHASE 4 — FEED DEBUGGER
+
+Create page:
+
+pages/FeedDebugger.tsx
+
+Allow selecting a post.
+
+Display ranking breakdown chart.
+
+Use:
+
+RankingBreakdownChart component.
+
+Break down:
+
+recency
+reactions
+trust
+policy modifier
+
+--------------------------------------------------
+
+PHASE 5 — TRUST GRAPH
+
+Create page:
+
+pages/TrustGraphView.tsx
+
+Use D3.js.
+
+Nodes = users
+Edges = interactions
+
+Node size = trust score.
+
+Add zoom + filter.
+
+--------------------------------------------------
+
+PHASE 6 — EVENT EXPLORER
+
+Create page:
+
+pages/EventExplorer.tsx
+
+Filters:
+
+event type
+actor id
+domain
+time
+
+Display JSON payload viewer.
+
+--------------------------------------------------
+
+REAL TIME EVENTS
+
+Connect to WebSocket service:
+
+services/websocket.ts
+
+Update UI components in real time.
+
+--------------------------------------------------
+
+GOAL
+
+The final interface should resemble a Mission Control center where operators can:
+
+monitor infrastructure
+observe event streams
+govern policy
+debug ranking
+analyze trust networks
+
+All using the Industrial-Glass design system.
+
+Build the complete interface.

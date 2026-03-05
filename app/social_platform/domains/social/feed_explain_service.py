@@ -13,6 +13,7 @@ from app.social_platform.domains.social.feed_ranking import (
     get_weight_values,
     EPOCH,
 )
+from app.social_platform.policies.policy_registry import get_global_registry
 
 
 class FeedExplainService:
@@ -28,6 +29,27 @@ class FeedExplainService:
 
     def _should_close(self) -> bool:
         return self._session is None
+
+    def _resolve_policy(
+        self,
+        policy_manifest: Optional[dict] = None,
+        policy_scope: Optional[str] = None,
+    ) -> tuple:
+        if policy_manifest:
+            policy_id = policy_manifest.get("policy_id") or policy_manifest.get("manifest_id")
+            policy_version = policy_manifest.get("version") or policy_manifest.get("manifest_id")
+            return policy_manifest, policy_id, policy_version
+
+        registry = get_global_registry()
+        policy_entry = registry.resolve_policy()
+
+        if policy_entry:
+            from app.social_platform.policies.feed_policy_manifest import FeedPolicyManifest
+            manifest_obj = FeedPolicyManifest.from_dict(policy_entry)
+            ranking_manifest = manifest_obj.to_ranking_manifest()
+            return ranking_manifest, policy_entry.get("policy_id"), policy_entry.get("version")
+
+        return None, None, None
 
     def explain(
         self,
@@ -56,7 +78,11 @@ class FeedExplainService:
                     "user_id": str(user_id),
                 }
 
-            ranked = deterministic_rank(all_entries, policy_manifest)
+            resolved_manifest, policy_id, policy_version = self._resolve_policy(
+                policy_manifest, policy_scope
+            )
+
+            ranked = deterministic_rank(all_entries, resolved_manifest)
 
             rank_position = -1
             for idx, entry in enumerate(ranked):
@@ -64,7 +90,7 @@ class FeedExplainService:
                     rank_position = idx + 1
                     break
 
-            weights = get_weight_values(policy_manifest)
+            weights = get_weight_values(resolved_manifest)
             ts_weight = weights["timestamp_weight"]
             reaction_weight = weights["reaction_weight"]
             trust_weight = weights["trust_weight"]
@@ -77,7 +103,7 @@ class FeedExplainService:
             reaction_contribution = target_entry.reaction_count * reaction_weight
             trust_contribution = target_entry.trust_score * trust_weight
             policy_contribution = target_entry.policy_weight * policy_weight_factor
-            total_score = compute_feed_score(target_entry, policy_manifest)
+            total_score = compute_feed_score(target_entry, resolved_manifest)
 
             score_breakdown = {}
             if total_score > 0:
@@ -93,6 +119,17 @@ class FeedExplainService:
                     "reaction_weight": 0.0,
                     "trust_weight": 0.0,
                     "policy_weight": 0.0,
+                }
+
+            registry = get_global_registry()
+            policy_entry = registry.get_policy(policy_id) if policy_id else None
+            policy_weights = {}
+            if policy_entry:
+                policy_weights = {
+                    "timestamp_weight": policy_entry.get("timestamp_weight"),
+                    "reaction_weight": policy_entry.get("reaction_weight"),
+                    "trust_weight": policy_entry.get("trust_weight"),
+                    "policy_weight": policy_entry.get("policy_weight"),
                 }
 
             return {
@@ -115,7 +152,10 @@ class FeedExplainService:
                     "policy_weight": target_entry.policy_weight,
                 },
                 "weights_used": weights,
-                "policy_manifest_id": policy_manifest.get("manifest_id") if policy_manifest else None,
+                "policy_id": policy_id,
+                "policy_version": policy_version,
+                "policy_weights": policy_weights if policy_weights else None,
+                "policy_manifest_id": resolved_manifest.get("manifest_id") if resolved_manifest else None,
                 "policy_scope": policy_scope or target_entry.policy_scope,
                 "tie_break_rule": "content_id",
             }

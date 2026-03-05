@@ -114,13 +114,14 @@ A human-supervised AI execution control plane with approval workflows and transp
 ## Social Civic Infrastructure Engine (app/social_platform/)
 - **Architecture**: Deterministic event sourcing — all mutations flow through ExecutionEngine → EventStore → ProjectionEngine
 - **Stack**: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL
-- **Entry point**: `app/social_platform/main.py` (FastAPI app, 37 routes)
-- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (106 unit tests across 16 test files)
+- **Entry point**: `app/social_platform/main.py` (FastAPI app, 40 routes)
+- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (136 unit tests across 17 test files)
 - **Projection Rebuild CLI**: `python -m app.social_platform.tools.replay_social_system [--force]`
 - **Event Stream Inspector**: `GET /admin/events` (SSE streaming + paginated history), `GET /admin/event_stream` (admin UI)
 - **Feed Debugger**: `GET /admin/feed_explain` (ranking explanation API), `GET /admin/feed_debugger` (admin UI)
 - **Worker Health Dashboard**: `GET /admin/workers` (worker/lease/heartbeat data), `GET /admin/worker_dashboard` (admin UI with 5s auto-refresh)
 - **Event Metrics**: `GET /admin/event_metrics` (events/s, domain breakdown, retry/dead-letter rates)
+- **Feed Policies Admin**: `GET /admin/feed_policies` (list/manage), `POST /admin/feed_policies/propose` (create proposal), `POST /admin/feed_policies/validate` (dry-run validation), `POST /admin/feed_policies/{id}/approve` (governance approval), `GET /admin/feed_policies_ui` (admin UI)
 - **Shared Ranking**: `app/social_platform/domains/social/feed_ranking.py` — single source of truth for deterministic ranking used by both FeedGenerateWorker and FeedExplainService
 - **Event Sequence Index**: `event_sequence BIGSERIAL` column on events table for stronger deterministic ordering; EventStore falls back to timestamp+event_id ordering if column unavailable
 

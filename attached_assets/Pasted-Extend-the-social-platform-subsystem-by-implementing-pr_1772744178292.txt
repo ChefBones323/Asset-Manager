@@ -1,0 +1,135 @@
+Extend the social_platform subsystem by implementing programmable feed policies.
+
+Architecture invariants must remain intact:
+
+ExecutionEngine → EventStore → ProjectionEngine → Workers → Projection Tables
+
+Never introduce direct writes to projection tables.
+
+--------------------------------------------------
+
+FEATURE 1 — POLICY MANIFEST SYSTEM
+
+Create module:
+
+app/social_platform/policies/feed_policy_manifest.py
+
+A policy manifest defines ranking weights and constraints.
+
+Example structure:
+
+{
+  "policy_id": "community_default",
+  "timestamp_weight": 0.40,
+  "reaction_weight": 0.25,
+  "trust_weight": 0.20,
+  "policy_weight": 0.15,
+  "max_age_hours": 72,
+  "min_trust_threshold": -20
+}
+
+Policies must be deterministic and versioned.
+
+--------------------------------------------------
+
+FEATURE 2 — POLICY REGISTRY
+
+Create module:
+
+app/social_platform/policies/policy_registry.py
+
+Responsibilities:
+
+register_policy(policy_manifest)
+get_policy(policy_id)
+list_policies()
+
+Policies must be immutable once published.
+
+--------------------------------------------------
+
+FEATURE 3 — POLICY VALIDATOR
+
+Create module:
+
+app/social_platform/policies/policy_validator.py
+
+Validation rules:
+
+weights must sum to 1.0
+weights must be non-negative
+policy_id must be unique
+max_age_hours must be positive
+
+Invalid policies must be rejected.
+
+--------------------------------------------------
+
+FEATURE 4 — POLICY GOVERNANCE
+
+Policy creation must follow the governance system.
+
+Create proposal type:
+
+create_feed_policy
+
+Lifecycle:
+
+proposal → approval → policy registry
+
+Policies cannot be activated without approval.
+
+--------------------------------------------------
+
+FEATURE 5 — POLICY-AWARE FEED GENERATION
+
+Update FeedGenerateWorker:
+
+Load policy manifest based on:
+
+community_id
+organization_id
+or default system policy
+
+Ranking must use policy weights.
+
+--------------------------------------------------
+
+FEATURE 6 — POLICY EXPLAIN EXTENSION
+
+Enhance FeedExplainService to include policy metadata:
+
+{
+  "policy_id": "...",
+  "policy_version": "...",
+  "policy_weights": {...}
+}
+
+--------------------------------------------------
+
+FEATURE 7 — POLICY ADMIN UI
+
+Create admin page:
+
+/admin/feed_policies
+
+Display:
+
+available policies
+policy weights
+policy versions
+governance approval status
+
+--------------------------------------------------
+
+TESTING
+
+Add tests for:
+
+policy validation
+policy registry lookup
+policy governance proposal
+policy-aware feed ranking
+policy explain integration
+
+All tests must pass.

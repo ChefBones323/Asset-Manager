@@ -8,6 +8,8 @@ from app.social_platform.models.base import SessionLocal
 from app.social_platform.models.governance_models import GovernanceProposal
 from app.social_platform.models.event_models import Event
 from app.social_platform.infrastructure.projection_engine import ProjectionEngine
+from app.social_platform.policies.policy_registry import get_global_registry
+from app.social_platform.policies.policy_validator import validate_policy, PolicyValidationError
 
 
 class PolicyWorker:
@@ -28,6 +30,8 @@ class PolicyWorker:
         self._projection_engine.register_handler("governance_proposal_created", self._handle_proposal_created)
         self._projection_engine.register_handler("governance_vote_cast", self._handle_vote_cast)
         self._projection_engine.register_handler("governance_executed", self._handle_governance_executed)
+        self._projection_engine.register_handler("feed_policy_proposed", self._handle_feed_policy_proposed)
+        self._projection_engine.register_handler("feed_policy_approved", self._handle_feed_policy_approved)
 
     def _handle_proposal_created(self, event: Event):
         session = self._get_session()
@@ -122,3 +126,31 @@ class PolicyWorker:
         finally:
             if self._should_close():
                 session.close()
+
+    def _handle_feed_policy_proposed(self, event: Event):
+        payload = event.payload or {}
+        policy_data = payload.get("policy", {})
+
+        if not policy_data:
+            return
+
+        registry = get_global_registry()
+        try:
+            from app.social_platform.policies.policy_registry import PolicyAlreadyPublishedError
+            registry.register_policy(policy_data, approved=False)
+        except PolicyAlreadyPublishedError:
+            pass
+
+    def _handle_feed_policy_approved(self, event: Event):
+        payload = event.payload or {}
+        policy_id = payload.get("policy_id")
+
+        if not policy_id:
+            return
+
+        registry = get_global_registry()
+        try:
+            from app.social_platform.policies.policy_registry import PolicyNotFoundError
+            registry.approve_policy(policy_id)
+        except PolicyNotFoundError:
+            pass

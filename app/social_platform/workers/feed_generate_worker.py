@@ -6,6 +6,7 @@ from app.social_platform.models.base import SessionLocal
 from app.social_platform.models.feed_models import FeedIndex
 from app.social_platform.policies.feed_policy_engine import FeedPolicyEngine
 from app.social_platform.domains.social.feed_ranking import deterministic_rank
+from app.social_platform.policies.policy_registry import get_global_registry
 
 
 class FeedGenerateWorker:
@@ -21,12 +22,36 @@ class FeedGenerateWorker:
     def _should_close(self) -> bool:
         return self._session is None
 
+    def _resolve_policy_manifest(
+        self,
+        policy_manifest: Optional[dict] = None,
+        community_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
+    ) -> Optional[dict]:
+        if policy_manifest:
+            return policy_manifest
+
+        registry = get_global_registry()
+        policy_entry = registry.resolve_policy(
+            community_id=community_id,
+            organization_id=organization_id,
+        )
+
+        if policy_entry:
+            from app.social_platform.policies.feed_policy_manifest import FeedPolicyManifest
+            manifest = FeedPolicyManifest.from_dict(policy_entry)
+            return manifest.to_ranking_manifest()
+
+        return None
+
     def generate_feed(
         self,
         user_id: uuid.UUID,
         limit: int = 50,
         offset: int = 0,
         policy_manifest: Optional[dict] = None,
+        community_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
     ) -> List[dict]:
         session = self._get_session()
         try:
@@ -36,10 +61,14 @@ class FeedGenerateWorker:
                 .all()
             )
 
-            if policy_manifest:
-                self._policy_engine.load_policy_manifest(policy_manifest)
+            resolved_manifest = self._resolve_policy_manifest(
+                policy_manifest, community_id, organization_id
+            )
 
-            ranked = deterministic_rank(entries, policy_manifest)
+            if resolved_manifest:
+                self._policy_engine.load_policy_manifest(resolved_manifest)
+
+            ranked = deterministic_rank(entries, resolved_manifest)
             paginated = ranked[offset : offset + limit]
             return [entry.to_dict() for entry in paginated]
         finally:
@@ -55,7 +84,13 @@ class FeedGenerateWorker:
             limit = payload.get("limit", 50)
             offset = payload.get("offset", 0)
             policy_manifest = payload.get("policy_manifest")
-            feed = self.generate_feed(user_id, limit, offset, policy_manifest)
+            community_id = payload.get("community_id")
+            organization_id = payload.get("organization_id")
+            feed = self.generate_feed(
+                user_id, limit, offset, policy_manifest,
+                community_id=community_id,
+                organization_id=organization_id,
+            )
             return {"status": "generated", "count": len(feed), "feed": feed}
 
         return {"status": "ignored", "event_type": event_type}

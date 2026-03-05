@@ -14,6 +14,7 @@ from app.social_platform.admin.event_stream_inspector import router as event_str
 from app.social_platform.admin.feed_debugger import router as feed_debugger_router
 from app.social_platform.admin.worker_dashboard import router as worker_dashboard_router
 from app.social_platform.admin.event_metrics_api import router as event_metrics_router
+from app.social_platform.admin.feed_policies import router as feed_policies_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +65,7 @@ app.include_router(event_stream_router)
 app.include_router(feed_debugger_router)
 app.include_router(worker_dashboard_router)
 app.include_router(event_metrics_router)
+app.include_router(feed_policies_router)
 
 
 @app.get("/health")

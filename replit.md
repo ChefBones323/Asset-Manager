@@ -28,8 +28,9 @@ A human-supervised AI execution control plane with approval workflows and transp
 - `server/storage.ts` - Database storage layer (includes lease management, expired/runaway queries)
 - `server/index.ts` - Server startup with autonomous watchdog interval (every 5s)
 - `server/proposal-builder.ts` - Simulated cognitive engine that generates proposals from intents (legacy, no longer used in job creation)
-- `blueprint_update_github.py` - Script to add GitHub capabilities to the governed blueprint registry (idempotent)
-- `registry/capabilities.json` - Governed blueprint capability registry (7 GitHub functions)
+- `blueprint_update_github.py` - Idempotent script to add GitHub capabilities to the governed blueprint registry
+- `registry/capabilities.json` - Governed blueprint capability registry (7 GitHub functions, sorted by ID)
+- `lint/blueprint_validator.py` - Validates registry JSON schema, checks for duplicates, required fields, and sort order
 - `server/seed.ts` - Database seeding with sample jobs
 - `server/db.ts` - Database connection (Neon/PostgreSQL)
 - `client/src/pages/dashboard.tsx` - Main dashboard with proposal creation, approval, governance tab, and live feed
@@ -83,6 +84,21 @@ A human-supervised AI execution control plane with approval workflows and transp
 - Heartbeat every 10 seconds in background thread
 - Rollback on failure: tracks created files, removes them if requiresRollback is true
 - Environment: WORKER_TOKEN, WORKER_ID, API_BASE, POLL_INTERVAL
+
+## Blueprint Registry (registry/capabilities.json)
+- Governed capability registry for the control plane
+- Each capability entry has: id, name, type, description, function, language, module
+- Sorted by id for deterministic hashing and diff-friendly output
+- Currently contains 7 GitHub capabilities:
+  - `github_check_repo_initialized` — Check if a repo is initialized
+  - `github_compare_commits` — Compare two commits/refs
+  - `github_create_pull_request` — Create a pull request
+  - `github_fetch_commit` — Retrieve commit metadata
+  - `github_fetch_file` — Fetch file contents at a specific ref
+  - `github_merge_pull_request` — Merge an existing pull request
+  - `github_search_repository` — Search files by keywords/patterns
+- Update script: `python3 blueprint_update_github.py` (idempotent, deduplicates by id)
+- Validation: `python3 lint/blueprint_validator.py` (checks JSON structure, required fields, duplicates, sort order)
 
 ## Watchdog (Autonomous)
 - Runs every 5 seconds in server startup

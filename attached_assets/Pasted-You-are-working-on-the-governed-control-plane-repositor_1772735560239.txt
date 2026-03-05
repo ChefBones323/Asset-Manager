@@ -1,0 +1,59 @@
+You are working on the governed-control-plane repository. Follow the strict governed workflow: no direct commits to `main`, no unreviewed domain additions, and maintain an audit trail. Your task is to integrate new GitHub capabilities into the blueprint registry.
+
+1. **Create the registry directory (if it doesn’t exist) and the capabilities registry file:**
+   - Ensure a `/registry` directory exists at the project root.
+   - Create a `capabilities.json` file inside `/registry`.
+   - Use JSON as the canonical format. Make sure keys are sorted consistently for deterministic hashing.
+
+2. **Implement an idempotent Python script to update the registry with new GitHub functions:**
+   - Create `blueprint_update_github.py` in the project root.
+   - The script should:
+     1. Load `/registry/capabilities.json` if it exists, or start with an empty list.
+     2. Define a list of new GitHub capability objects with the following structure:
+        ```json
+        {
+          "id": "<unique-id>",
+          "name": "<function-name>",
+          "description": "<what-it-does>",
+          "language": "python",
+          "module": "<python-module-for-function>"
+        }
+        ```
+        Include these 7 functions:
+        - `github_check_repo_initialized` — Check if a repo is initialized.
+        - `github_compare_commits` — Compare two commits/refs.
+        - `github_fetch_file` — Fetch file contents at a specific ref.
+        - `github_fetch_commit` — Retrieve commit metadata.
+        - `github_search_repository` — Search files by keywords/patterns.
+        - `github_create_pull_request` — Create a pull request.
+        - `github_merge_pull_request` — Merge an existing pull request.
+     3. Check existing entries by ID; append only those that are missing.
+     4. Write the updated list back to `/registry/capabilities.json`, keeping the file’s structure clean and sorted.
+   - Ensure the script is idempotent—running it multiple times should not create duplicates.
+
+3. **Run the script to populate the registry file:**
+   - If Python is available, execute `python3 blueprint_update_github.py` from the project root.
+   - If Python isn’t installed, manually insert the capability objects into `capabilities.json` sorted by `id`.
+
+4. **Add or update the lint/validation script:**
+   - Confirm that `lint/blueprint_validator.py` can validate the JSON schema for capabilities.
+   - If necessary, update the validator to handle the new capability entries.
+
+5. **Update project documentation:**
+   - Modify `replit.md` (or the equivalent documentation file) to describe:
+     - The purpose of `blueprint_update_github.py`.
+     - How the registry is structured.
+     - The list of GitHub functions added and their descriptions.
+     - Instructions on running the script and its idempotent behavior.
+
+6. **Verify and test:**
+   - Ensure the registry loads correctly without JSON syntax errors.
+   - Confirm there are no duplicate capability IDs or names.
+   - Run any existing test suite or linting tools to verify the project remains stable.
+
+7. **Prepare the changes for review:**
+   - Stage the new and modified files.
+   - Commit them to a feature branch (not directly to `main`) with a message like: “Add GitHub capability registration and update scripts.”
+   - Push the branch and open a pull request following the proposal → blueprint submission → review → approval process.
+
+Once completed, summarize the changes made, including what files were added or updated, and confirm that the repository governance principles remain intact.

@@ -115,7 +115,8 @@ A human-supervised AI execution control plane with approval workflows and transp
 - **Architecture**: Deterministic event sourcing — all mutations flow through ExecutionEngine → EventStore → ProjectionEngine
 - **Stack**: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL
 - **Entry point**: `app/social_platform/main.py` (FastAPI app, 31 routes)
-- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (48 unit tests)
+- **Tests**: `python3 -m pytest app/social_platform/tests/ -v` (72 unit tests)
+- **Projection Rebuild CLI**: `python -m app.social_platform.tools.replay_social_system`
 
 ### Core Invariants
 1. Approval required before execution
@@ -127,18 +128,19 @@ A human-supervised AI execution control plane with approval workflows and transp
 7. Replayable state from event logs
 
 ### Phase 1 — Platform Foundation
-- `app/social_platform/infrastructure/event_store.py` — Append-only event ledger with transactional dual-write (events + audit_logs in single commit)
+- `app/social_platform/infrastructure/event_store.py` — Append-only event ledger with SERIALIZABLE isolation, optimistic concurrency control, auto-retry on serialization conflicts (3 attempts), transactional dual-write (events + audit_logs in single commit)
 - `app/social_platform/infrastructure/projection_engine.py` — Processes events into projection tables
 - `app/social_platform/infrastructure/redis_queue.py` — Redis queue with in-memory fallback
-- `app/social_platform/infrastructure/worker_runtime.py` — Worker lifecycle with Pydantic manifest validation (WorkerManifest schema); invalid manifests immediately transition job to failed
+- `app/social_platform/infrastructure/worker_runtime.py` — Worker lifecycle with Pydantic manifest validation (WorkerManifest schema); invalid manifests immediately transition job to failed + audit record written; heartbeat thread runs during task execution
 - `app/social_platform/models/event_models.py` — Event + AuditLog SQLAlchemy models (audit_logs references events via event_id FK)
 - `app/social_platform/platform/execution_engine.py` — Orchestrates proposal→approval→manifest→lease→execute→audit
 - `app/social_platform/platform/proposal_service.py` — Proposal CRUD
 - `app/social_platform/platform/approval_service.py` — Approval/rejection with enforcement
 - `app/social_platform/platform/manifest_compiler.py` — Deterministic manifest generation
-- `app/social_platform/platform/lease_manager.py` — Lease acquire/release/renew (one per job)
+- `app/social_platform/platform/lease_manager.py` — Lease acquire/release/renew/heartbeat (one per job); stale lease detection via heartbeat timeout; automatic recovery with retry limit (3) and dead-letter queue
 - `app/social_platform/platform/audit_logger.py` — Full audit trail
 - `app/social_platform/platform/replay_engine.py` — Rebuild state from events
+- `app/social_platform/tools/replay_social_system.py` — CLI to wipe projection tables and rebuild from event log
 
 ### Phase 2 — Content Domain
 - Content service (create_post, create_comment, add_reaction, share_post) — all generate proposals

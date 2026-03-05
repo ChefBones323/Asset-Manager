@@ -1,9 +1,19 @@
 import uuid
+import time
 from datetime import datetime, timezone
 from typing import Optional
+from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 from app.social_platform.models.event_models import Event, AuditLog
-from app.social_platform.models.base import SessionLocal
+from app.social_platform.models.base import SessionLocal, serializable_session
+
+SERIALIZATION_RETRY_LIMIT = 3
+SERIALIZATION_RETRY_BACKOFF = 0.05
+
+
+class SerializationConflictError(Exception):
+    pass
 
 
 class EventStore:
@@ -14,6 +24,11 @@ class EventStore:
         if self._session:
             return self._session
         return SessionLocal()
+
+    def _get_serializable_session(self) -> Session:
+        if self._session:
+            return self._session
+        return serializable_session()
 
     def _should_close(self) -> bool:
         return self._session is None
@@ -28,46 +43,73 @@ class EventStore:
         execution_id: Optional[uuid.UUID] = None,
         signature: Optional[str] = None,
     ) -> Event:
-        session = self._get_session()
-        try:
-            now = datetime.now(timezone.utc)
-            event_id = uuid.uuid4()
+        last_error = None
 
-            event = Event(
-                event_id=event_id,
-                domain=domain,
-                event_type=event_type,
-                actor_id=actor_id,
-                payload=payload,
-                manifest_id=manifest_id,
-                execution_id=execution_id,
-                timestamp=now,
-                signature=signature,
-            )
+        for attempt in range(SERIALIZATION_RETRY_LIMIT):
+            session = self._get_serializable_session()
+            try:
+                session.execute(text("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"))
 
-            audit_log = AuditLog(
-                audit_id=uuid.uuid4(),
-                event_id=event_id,
-                domain=domain,
-                event_type=event_type,
-                actor_id=actor_id,
-                resource_type=payload.get("resource_type", domain),
-                resource_id=str(payload.get("resource_id", payload.get("proposal_id", ""))),
-                summary=f"{event_type} by {actor_id}",
-                timestamp=now,
-            )
+                now = datetime.now(timezone.utc)
+                event_id = uuid.uuid4()
 
-            session.add(event)
-            session.add(audit_log)
-            session.commit()
-            session.refresh(event)
-            return event
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            if self._should_close():
-                session.close()
+                event = Event(
+                    event_id=event_id,
+                    domain=domain,
+                    event_type=event_type,
+                    actor_id=actor_id,
+                    payload=payload,
+                    manifest_id=manifest_id,
+                    execution_id=execution_id,
+                    timestamp=now,
+                    signature=signature,
+                )
+
+                audit_log = AuditLog(
+                    audit_id=uuid.uuid4(),
+                    event_id=event_id,
+                    domain=domain,
+                    event_type=event_type,
+                    actor_id=actor_id,
+                    resource_type=payload.get("resource_type", domain),
+                    resource_id=str(payload.get("resource_id", payload.get("proposal_id", ""))),
+                    summary=f"{event_type} by {actor_id}",
+                    timestamp=now,
+                )
+
+                session.add(event)
+                session.add(audit_log)
+                session.commit()
+                session.refresh(event)
+                return event
+
+            except OperationalError as exc:
+                session.rollback()
+                error_str = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+                is_serialization_failure = (
+                    "serialization" in error_str.lower()
+                    or "could not serialize" in error_str.lower()
+                    or "40001" in error_str
+                )
+                if is_serialization_failure and attempt < SERIALIZATION_RETRY_LIMIT - 1:
+                    last_error = exc
+                    time.sleep(SERIALIZATION_RETRY_BACKOFF * (attempt + 1))
+                    continue
+                raise SerializationConflictError(
+                    f"Serialization conflict after {attempt + 1} attempts: {error_str}"
+                ) from exc
+
+            except Exception:
+                session.rollback()
+                raise
+
+            finally:
+                if self._should_close():
+                    session.close()
+
+        raise SerializationConflictError(
+            f"Exhausted {SERIALIZATION_RETRY_LIMIT} retries"
+        ) from last_error
 
     def get_events(
         self,

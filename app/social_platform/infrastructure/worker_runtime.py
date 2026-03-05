@@ -2,7 +2,7 @@ import uuid
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Optional, Callable, Dict, Any, List, Literal
+from typing import Optional, Callable, Dict, Any, List
 
 from pydantic import BaseModel, Field, field_validator, ValidationError
 
@@ -47,12 +47,16 @@ class ManifestValidationError(Exception):
 
 
 class WorkerRuntime:
-    def __init__(self):
+    def __init__(self, event_store=None, lease_manager=None, heartbeat_interval: float = 10.0):
         self._workers: Dict[str, Dict[str, Any]] = {}
         self._queues: Dict[str, RedisQueue] = {}
         self._running = False
         self._threads: Dict[str, threading.Thread] = {}
+        self._heartbeat_threads: Dict[str, threading.Thread] = {}
         self._job_statuses: Dict[str, Dict[str, Any]] = {}
+        self._event_store = event_store
+        self._lease_manager = lease_manager
+        self._heartbeat_interval = heartbeat_interval
 
     def validate_manifest(self, manifest: dict) -> WorkerManifest:
         manifest_id = manifest.get("manifest_id", "<unknown>")
@@ -61,7 +65,36 @@ class WorkerRuntime:
         except ValidationError as exc:
             errors = exc.errors()
             self._transition_job(manifest_id, "failed", errors=errors)
+            self._write_audit_record(
+                manifest_id=manifest_id,
+                action="manifest_validation_failed",
+                details={"errors": [str(e) for e in errors[:10]]},
+            )
             raise ManifestValidationError(manifest_id, errors) from exc
+
+    def _write_audit_record(
+        self,
+        manifest_id: str,
+        action: str,
+        details: Optional[dict] = None,
+    ):
+        if not self._event_store:
+            return
+        try:
+            self._event_store.append_event(
+                domain="audit",
+                event_type=f"worker_{action}",
+                actor_id=uuid.UUID(int=0),
+                payload={
+                    "manifest_id": manifest_id,
+                    "action": action,
+                    "details": details or {},
+                    "resource_type": "manifest",
+                    "resource_id": manifest_id,
+                },
+            )
+        except Exception:
+            pass
 
     def _transition_job(
         self,
@@ -99,6 +132,29 @@ class WorkerRuntime:
         self._workers[worker_id] = worker
         return {"worker_id": worker_id, "queue_name": queue_name, "status": "registered"}
 
+    def _start_heartbeat(self, worker_id: str, job_id: str):
+        if not self._lease_manager:
+            return
+
+        def heartbeat_loop():
+            while self._running:
+                try:
+                    result = self._lease_manager.record_heartbeat(job_id, worker_id)
+                    if not result:
+                        break
+                except Exception:
+                    break
+                time.sleep(self._heartbeat_interval)
+
+        key = f"{worker_id}:{job_id}"
+        t = threading.Thread(target=heartbeat_loop, daemon=True)
+        self._heartbeat_threads[key] = t
+        t.start()
+
+    def _stop_heartbeat(self, worker_id: str, job_id: str):
+        key = f"{worker_id}:{job_id}"
+        self._heartbeat_threads.pop(key, None)
+
     def execute_task(self, worker_id: str, task: dict) -> dict:
         worker = self._workers.get(worker_id)
         if not worker:
@@ -112,6 +168,10 @@ class WorkerRuntime:
         handler = worker["handler"]
         worker["status"] = "busy"
         manifest_id = manifest.get("manifest_id", "<unknown>") if manifest else "<unknown>"
+        job_id = task.get("job_id", manifest_id)
+
+        self._start_heartbeat(worker_id, job_id)
+
         try:
             result = handler(task)
             worker["tasks_processed"] += 1
@@ -126,7 +186,14 @@ class WorkerRuntime:
             worker["status"] = "error"
             if manifest:
                 self._transition_job(manifest_id, "failed", errors=[str(exc)])
+                self._write_audit_record(
+                    manifest_id=manifest_id,
+                    action="execution_failed",
+                    details={"error": str(exc)},
+                )
             raise
+        finally:
+            self._stop_heartbeat(worker_id, job_id)
 
     def submit_task(self, queue_name: str, task: dict) -> bool:
         if queue_name not in self._queues:
@@ -165,6 +232,7 @@ class WorkerRuntime:
         for t in self._threads.values():
             t.join(timeout=5)
         self._threads.clear()
+        self._heartbeat_threads.clear()
 
     def _worker_loop(self, worker_id: str, queue_name: str, poll_interval: float):
         queue = self._queues.get(queue_name)

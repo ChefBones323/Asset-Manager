@@ -1,0 +1,241 @@
+You are working inside a production application that already contains a subsystem called:
+
+SOCIAL CIVIC INFRASTRUCTURE ENGINE
+
+The system is event-sourced and deterministic.
+
+It already includes:
+
+EventStore
+ExecutionEngine
+ProposalService
+ApprovalService
+ManifestCompiler
+LeaseManager
+AuditLogger
+ReplayEngine
+RedisQueue
+WorkerRuntime
+Content Domain
+Feed Engine
+Trust System
+Delegation Graph
+Knowledge System
+Governance System
+
+Do NOT rewrite this architecture.
+
+Your task is to HARDEN the system by implementing three improvements while preserving all existing architecture invariants.
+
+--------------------------------------------------
+
+ARCHITECTURE RULES (DO NOT BREAK)
+
+All state mutations must flow through:
+
+ExecutionEngine → EventStore → ProjectionEngine
+
+Never allow direct writes to projection tables.
+
+EventStore must remain append-only.
+
+Execution lifecycle must remain:
+
+proposal → approval → manifest → lease → worker execution → audit log
+
+Workers must never mutate state without a valid lease.
+
+Feeds must remain deterministic.
+
+Trust scores must derive from trust events only.
+
+--------------------------------------------------
+
+TASK 1 — EVENT STORE CONCURRENCY SAFETY
+
+Problem:
+Concurrent append_event calls could cause inconsistent ordering or race conditions.
+
+Solution:
+Upgrade EventStore transaction handling.
+
+Modify:
+
+app/social_platform/infrastructure/event_store.py
+
+Implement the following:
+
+• Use SERIALIZABLE transaction isolation level
+• Use optimistic concurrency control
+• Detect conflicting writes and retry transaction
+• Ensure append_event writes both:
+  - Event record
+  - AuditLog record
+  in a single atomic transaction
+
+Required behavior:
+
+append_event()
+
+must:
+
+1 start SERIALIZABLE transaction
+2 insert event
+3 insert audit_log
+4 commit transaction
+5 retry automatically if serialization failure occurs
+
+Ensure event ordering remains deterministic.
+
+--------------------------------------------------
+
+TASK 2 — WORKER CRASH RECOVERY
+
+Problem:
+If a worker crashes while holding a lease, the job may remain stuck.
+
+Solution:
+Add worker heartbeat tracking and automatic lease recovery.
+
+Modify:
+
+app/social_platform/platform/lease_manager.py
+app/social_platform/infrastructure/worker_runtime.py
+
+Implement:
+
+Lease table fields:
+
+lease_id
+job_id
+worker_id
+lease_acquired_at
+last_heartbeat
+lease_timeout
+
+Worker runtime must:
+
+• send heartbeat every N seconds
+• update last_heartbeat
+
+LeaseManager must detect stale leases:
+
+If
+
+current_time - last_heartbeat > lease_timeout
+
+Then:
+
+• release lease
+• mark job retryable
+• requeue job
+
+Add retry limit and dead-letter queue for failed jobs.
+
+--------------------------------------------------
+
+TASK 3 — PROJECTION REBUILD CLI
+
+Problem:
+Operators need a safe way to rebuild projections from the event log.
+
+Create a CLI tool.
+
+File:
+
+app/social_platform/tools/replay_social_system.py
+
+Command:
+
+python replay_social_system.py
+
+Functionality:
+
+1 connect to database
+2 wipe projection tables
+
+Projection tables include:
+
+posts
+comments
+threads
+reaction_summary
+feed_index
+trust_profiles
+delegations
+knowledge_artifacts
+governance_proposals
+
+3 load all events from EventStore
+4 replay events using ReplayEngine
+5 rebuild projections deterministically
+
+CLI output must display:
+
+events processed
+projections rebuilt
+execution time
+
+--------------------------------------------------
+
+TASK 4 — WORKER MANIFEST VALIDATION
+
+Ensure WorkerRuntime uses strict Pydantic schema validation.
+
+If manifest schema fails validation:
+
+• mark job as failed
+• do not execute worker handler
+• write audit record
+
+File:
+
+app/social_platform/infrastructure/worker_runtime.py
+
+--------------------------------------------------
+
+TASK 5 — SYSTEM AUDIT
+
+After implementing fixes, run a full architecture audit.
+
+Verify:
+
+• all writes originate from ExecutionEngine
+• no projection table is written outside ProjectionEngine
+• EventStore remains append-only
+• workers require lease ownership
+• feed ranking deterministic
+• trust scores derived only from events
+• governance proposals trigger execution engine
+
+If violations are found, refactor code to restore architecture invariants.
+
+Do not modify the existing Node.js application.
+
+--------------------------------------------------
+
+TASK 6 — TESTING
+
+Add unit tests for:
+
+• EventStore concurrency
+• lease timeout recovery
+• worker heartbeat detection
+• projection replay CLI
+• manifest validation failures
+
+All tests must pass.
+
+--------------------------------------------------
+
+FINAL OBJECTIVE
+
+Harden the system so it supports:
+
+safe concurrent event writes
+worker crash recovery
+projection replay from event log
+strict manifest validation
+architecture invariants
+
+Preserve the deterministic civic infrastructure architecture.

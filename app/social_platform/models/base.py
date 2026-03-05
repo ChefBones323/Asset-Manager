@@ -9,6 +9,11 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
 
+def serializable_session():
+    from sqlalchemy.orm import Session
+    return Session(bind=engine, autocommit=False, autoflush=False)
+
+
 def get_session():
     session = SessionLocal()
     try:

@@ -52,6 +52,16 @@ The UI is a persistent single-page application using an AppShell layout:
 - `CommandPalette` (Cmd+K) and `SocialComposer` are rendered at the App level, accessible from all pages
 - `uiState.ts` manages `paletteOpen`, `composerOpen`, `activePage`
 
+## Universal Social Connector Layer
+Multi-platform social publishing via event-sourced worker pipeline:
+- **Interface**: `interfaces/socialPost.ts` — `SocialPostPayload` (content, media, tags, platforms), `SUPPORTED_PLATFORMS` (civic, facebook, twitter, linkedin, instagram, youtube, reddit, discord)
+- **Connectors**: `services/integrations/[platform]Connector.ts` — each implements `SocialConnector { platform, publish() }` interface from `connectorRegistry.ts`
+- **Dispatcher**: `services/integrations/publishDispatcher.ts` — routes payloads to registered connectors, imports all connectors to trigger self-registration
+- **Worker**: `workers/socialPublisherWorker.ts` — subscribes to Zustand eventStore, processes `content_created` events with `platforms` payload, dispatches to connectors, emits `[platform]_post_sent` or `platform_publish_failed` events back to eventStore
+- **Composer**: `SocialComposer.tsx` has platform toggle grid; submission pushes `content_created` event to eventStore with platforms array; worker picks it up
+- **Flow**: Composer → event → worker → dispatcher → connector → result events (observable in EventPulsePanel)
+- **Security**: API tokens stored as env vars (FACEBOOK_TOKEN, TWITTER_API_KEY, etc.); connectors currently simulate publishing
+
 ## External Dependencies
 - **Frontend Framework**: React
 - **Backend Framework**: Express.js

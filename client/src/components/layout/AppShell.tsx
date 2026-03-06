@@ -4,6 +4,7 @@ import { NavigationRail } from "./NavigationRail";
 import { SystemTopBar } from "./SystemTopBar";
 import { useUIState } from "@/store/uiState";
 import { connectEventStream, disconnectEventStream } from "@/services/websocket";
+import { startSocialPublisherWorker, stopSocialPublisherWorker } from "@/workers/socialPublisherWorker";
 import { Metric, MetricRow } from "@/components/common/Metric";
 import { useQuery } from "@tanstack/react-query";
 import { socialApi, type EventMetrics } from "@/services/api";
@@ -18,7 +19,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     connectEventStream();
-    return () => disconnectEventStream();
+    startSocialPublisherWorker();
+    return () => {
+      disconnectEventStream();
+      stopSocialPublisherWorker();
+    };
   }, []);
 
   const { data: metrics } = useQuery<EventMetrics>({

@@ -62,6 +62,32 @@ Multi-platform social publishing via event-sourced worker pipeline:
 - **Flow**: Composer → event → worker → dispatcher → connector → result events (observable in EventPulsePanel)
 - **Security**: API tokens stored as env vars (FACEBOOK_TOKEN, TWITTER_API_KEY, etc.); connectors currently simulate publishing
 
+## Intelligence Layer
+Three intelligence capabilities integrated into Mission Control:
+
+### System Time Machine (`/timeline`)
+- **Service**: `services/replay/replayService.ts` — `reconstructState()` rebuilds feed/trust/governance/worker state from events up to a cursor position
+- **Page**: `pages/SystemTimeline.tsx` — timeline slider, step controls, domain-colored event track, filter by domain/type/actor, jump-to-event, replay state cards (Feed, Trust, Governance, Workers), event detail modal
+- **Pattern**: Combines backend-fetched events with Zustand store events; slider controls cursor position; state cards update reactively
+
+### Print & Export Engine
+- **Service**: `services/export/printService.ts` — `printGovernanceReport()`, `printFeedSnapshot()`, `printTrustGraph()`, `printEventLog()`, `printConfigurationHistory()` — each accepts `"pdf" | "csv" | "json"` format
+- **Component**: `components/common/ExportMenu.tsx` — reusable dropdown with PDF/CSV/JSON options
+- **Integration**: Export buttons added to GovernanceConsole, FeedDebugger, TrustGraphView, EventExplorer pages
+- **Print CSS**: `styles/print.css` — media query overrides for clean printing (hides nav, normalizes glass panels)
+- **Dependency**: `jspdf` for PDF generation
+
+### Civic AI Operator (`/ai-operator`)
+- **Service**: `services/ai/analysisService.ts` — `processQuery()` routes natural language to analysis functions: `analyzeFeedRanking`, `explainTrustScore`, `tracePolicyImpact`, `findInfluentialNodes`, `detectAnomalies`, `summarizeEvents`, `explainEventChain`
+- **Component**: `components/ai/CivicOperatorPanel.tsx` — chat interface with suggested queries sidebar, conversation history, confidence scores, referenced event links
+- **Page**: `pages/AIOperator.tsx` — wrapper for CivicOperatorPanel
+- **Pattern**: Read-only analysis; never modifies system state; `AnalysisResult` has type/title/summary/details/referencedEvents/confidence
+
+### Navigation & Commands
+- NavigationRail: Added "Time Machine" (Clock icon) and "AI Operator" (Brain icon) nav items
+- CommandPalette: Added `intelligence` and `export` command categories with new commands for timeline, AI operator, replay, analysis, and exports
+- Routes: `/timeline` → SystemTimeline, `/ai-operator` → AIOperator
+
 ## External Dependencies
 - **Frontend Framework**: React
 - **Backend Framework**: Express.js

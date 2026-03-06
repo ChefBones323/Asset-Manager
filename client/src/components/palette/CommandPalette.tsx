@@ -3,14 +3,14 @@ import { useLocation } from "wouter";
 import { useUIState } from "@/store/uiState";
 import {
   Search, Terminal, Shield, Rss, Users, Server, Activity, Stethoscope,
-  ArrowRight, Command, PenSquare,
+  ArrowRight, Command, PenSquare, Clock, Brain, Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CommandEntry {
   id: string;
   label: string;
-  category: "governance" | "feed" | "trust" | "infrastructure" | "events" | "diagnostics" | "compose";
+  category: "governance" | "feed" | "trust" | "infrastructure" | "events" | "diagnostics" | "compose" | "intelligence" | "export";
   keywords: string[];
   action: () => void;
   icon: typeof Terminal;
@@ -24,6 +24,8 @@ const categoryIcons: Record<string, typeof Terminal> = {
   events: Activity,
   diagnostics: Stethoscope,
   compose: PenSquare,
+  intelligence: Brain,
+  export: Download,
 };
 
 const categoryColors: Record<string, string> = {
@@ -34,6 +36,8 @@ const categoryColors: Record<string, string> = {
   events: "text-chart-1",
   diagnostics: "text-signal-red",
   compose: "text-signal-blue",
+  intelligence: "text-signal-amber",
+  export: "text-signal-green",
 };
 
 export function CommandPalette() {
@@ -62,6 +66,16 @@ export function CommandPalette() {
     { id: "show_dlq", label: "View Dead Letter Queue", category: "infrastructure", keywords: ["dead", "letter", "queue", "dlq", "failed"], action: () => navigate("/dashboard"), icon: Server },
     { id: "filter_by_domain", label: "Filter Events by Domain", category: "events", keywords: ["filter", "domain", "events", "content", "trust"], action: () => navigate("/events"), icon: Activity },
     { id: "compare_policies", label: "Compare Feed Policies", category: "feed", keywords: ["compare", "policies", "feed", "weights"], action: () => navigate("/feed"), icon: Rss },
+    { id: "nav_timeline", label: "Open System Time Machine", category: "intelligence", keywords: ["timeline", "time", "machine", "replay", "rewind", "history"], action: () => navigate("/timeline"), icon: Clock },
+    { id: "nav_ai_operator", label: "Open AI Operator", category: "intelligence", keywords: ["ai", "operator", "analysis", "intelligence", "civic", "query"], action: () => navigate("/ai-operator"), icon: Brain },
+    { id: "replay_state", label: "Replay System State", category: "intelligence", keywords: ["replay", "reconstruct", "state", "snapshot", "time"], action: () => navigate("/timeline"), icon: Clock },
+    { id: "analyze_feed_ranking", label: "Analyze Feed Rankings", category: "intelligence", keywords: ["analyze", "feed", "ranking", "ai", "explain"], action: () => navigate("/ai-operator"), icon: Brain },
+    { id: "detect_anomalies", label: "Detect Anomalies", category: "intelligence", keywords: ["anomaly", "detect", "unusual", "errors", "failures"], action: () => navigate("/ai-operator"), icon: Brain },
+    { id: "export_governance", label: "Export Governance Report", category: "export", keywords: ["export", "governance", "pdf", "csv", "report"], action: () => navigate("/governance"), icon: Download },
+    { id: "export_feed", label: "Export Feed Snapshot", category: "export", keywords: ["export", "feed", "snapshot", "pdf", "csv"], action: () => navigate("/feed"), icon: Download },
+    { id: "export_trust", label: "Export Trust Graph", category: "export", keywords: ["export", "trust", "graph", "pdf", "csv"], action: () => navigate("/trust"), icon: Download },
+    { id: "export_events", label: "Export Event Log", category: "export", keywords: ["export", "events", "log", "pdf", "csv", "json"], action: () => navigate("/events"), icon: Download },
+    { id: "export_config", label: "Export Configuration History", category: "export", keywords: ["export", "config", "configuration", "history", "settings", "policy"], action: () => navigate("/settings"), icon: Download },
   ], [navigate, openComposer]);
 
   const filtered = useMemo(() => {

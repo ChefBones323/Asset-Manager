@@ -1,0 +1,92 @@
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .glass-panel,
+  .glass-panel-elevated,
+  .glass-inset {
+    background: white !important;
+    border: 1px solid #e5e7eb !important;
+    backdrop-filter: none !important;
+  }
+
+  .glass-panel::before,
+  .glass-panel-elevated::before {
+    display: none !important;
+  }
+
+  [data-testid="navigation-rail"],
+  [data-testid="system-top-bar"],
+  [data-testid="status-bar"],
+  [data-testid="command-palette"],
+  [data-testid="social-composer-modal"],
+  .signal-dot,
+  .animate-pulse-glow {
+    display: none !important;
+  }
+
+  .mono-label {
+    color: #374151 !important;
+    font-weight: 600;
+  }
+
+  .text-foreground,
+  .text-muted-foreground {
+    color: #111827 !important;
+  }
+
+  .text-signal-blue,
+  .text-signal-green,
+  .text-signal-amber,
+  .text-signal-red,
+  .text-signal-purple {
+    color: #111827 !important;
+  }
+
+  .bg-signal-blue,
+  .bg-signal-green,
+  .bg-signal-amber,
+  .bg-signal-red,
+  .bg-signal-purple {
+    background-color: #6b7280 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  a {
+    color: #111827 !important;
+    text-decoration: none !important;
+  }
+
+  button[data-testid^="btn-export"],
+  button[data-testid^="btn-print"] {
+    display: none !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  pre, code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 9pt;
+    border: 1px solid #e5e7eb;
+    padding: 8px;
+  }
+}

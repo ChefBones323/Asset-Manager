@@ -1,10 +1,12 @@
 import { useState, useCallback } from "react";
 import { TrustGraph, type TrustNode, type TrustEdge } from "@/components/trust/TrustGraph";
 import { GlassCard, GlassCardBody } from "@/components/common/Card";
+import { ExportMenu } from "@/components/common/ExportMenu";
 import { Metric, MetricRow } from "@/components/common/Metric";
 import { GlassModal } from "@/components/common/Modal";
 import { cn } from "@/lib/utils";
 import { Filter } from "lucide-react";
+import { printTrustGraph } from "@/services/export/printService";
 
 const DEMO_NODES: TrustNode[] = [
   { id: "user-1", label: "CivicMod", trust_score: 85, group: "moderator" },
@@ -43,9 +45,12 @@ export default function TrustGraphView() {
   return (
     <div className="h-full flex flex-col lg:flex-row gap-0 overflow-hidden" data-testid="trust-graph-view">
       <div className="lg:w-56 glass-panel border-r border-white/[0.06] p-3 space-y-3 shrink-0 overflow-y-auto">
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="mono-label">Filters</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="mono-label">Filters</span>
+          </div>
+          <ExportMenu onExport={(f) => printTrustGraph(f)} label="Export" data-testid="export-trust" />
         </div>
         <div className="space-y-1.5">
           <label className="mono-label text-[10px]">Min Trust Score: {minTrust}</label>

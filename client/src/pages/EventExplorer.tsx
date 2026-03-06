@@ -2,10 +2,12 @@ import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { socialApi, type EventRecord } from "@/services/api";
 import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardBody } from "@/components/common/Card";
+import { ExportMenu } from "@/components/common/ExportMenu";
 import { GlassModal } from "@/components/common/Modal";
 import { Metric, MetricRow } from "@/components/common/Metric";
 import { cn } from "@/lib/utils";
 import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { printEventLog } from "@/services/export/printService";
 
 const DOMAINS = ["", "content", "trust", "governance", "platform", "feed_policy"];
 
@@ -47,6 +49,9 @@ export default function EventExplorer() {
 
   return (
     <div className="h-full p-4 overflow-y-auto" data-testid="event-explorer">
+      <div className="flex items-center justify-end mb-3">
+        <ExportMenu onExport={(f) => printEventLog(f)} label="Export Log" data-testid="export-events" />
+      </div>
       <MetricRow className="mb-4">
         <Metric label="Total Events" value={total} signal="blue" data-testid="metric-total-events" />
         <Metric label="Showing" value={events.length} data-testid="metric-showing" />

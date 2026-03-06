@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { socialApi, type GovernanceProposal, type FeedPolicy } from "@/services/api";
 import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardBody } from "@/components/common/Card";
+import { ExportMenu } from "@/components/common/ExportMenu";
 import { Metric, MetricRow } from "@/components/common/Metric";
 import { cn } from "@/lib/utils";
 import { CheckCircle, XCircle, Clock, Vote, FileText } from "lucide-react";
+import { printGovernanceReport } from "@/services/export/printService";
 
 function statusBadge(status: string) {
   const map: Record<string, { color: string; icon: typeof Clock }> = {
@@ -45,6 +47,9 @@ export default function GovernanceConsole() {
 
   return (
     <div className="h-full p-4 overflow-y-auto" data-testid="governance-console">
+      <div className="flex items-center justify-end mb-3">
+        <ExportMenu onExport={(f) => printGovernanceReport(f)} label="Export Report" data-testid="export-governance" />
+      </div>
       <MetricRow className="mb-6">
         <Metric label="Total Proposals" value={allProposals.length} signal="purple" data-testid="metric-total-proposals" />
         <Metric label="Open" value={openProposals.length} signal="amber" data-testid="metric-open-proposals" />

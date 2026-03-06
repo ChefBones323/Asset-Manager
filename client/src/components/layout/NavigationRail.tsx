@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import {
   LayoutDashboard, Shield, Rss, Users, Activity, Settings,
+  Clock, Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,8 @@ const NAV_ITEMS = [
   { path: "/feed", label: "Civic Feed", icon: Rss },
   { path: "/trust", label: "Trust Graph", icon: Users },
   { path: "/events", label: "Event Explorer", icon: Activity },
+  { path: "/timeline", label: "Time Machine", icon: Clock },
+  { path: "/ai-operator", label: "AI Operator", icon: Brain },
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

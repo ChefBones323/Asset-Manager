@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardBody } from "@/components/common/Card";
+import { ExportMenu } from "@/components/common/ExportMenu";
 import { RankingBreakdownChart, type RankingBreakdown } from "@/components/debugger/RankingBreakdownChart";
 import { Metric, MetricRow } from "@/components/common/Metric";
 import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
+import { printFeedSnapshot } from "@/services/export/printService";
 
 const SAMPLE_POSTS = [
   { id: "post-1", label: "Governance Update", recency: 0.35, reactions: 0.28, trust: 0.22, policy: 0.15, total: 4.82, rank: 1 },
@@ -24,6 +26,9 @@ export default function FeedDebugger() {
 
   return (
     <div className="h-full p-4 overflow-y-auto" data-testid="feed-debugger">
+      <div className="flex items-center justify-end mb-3">
+        <ExportMenu onExport={(f) => printFeedSnapshot(f)} label="Export Snapshot" data-testid="export-feed" />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 max-w-5xl">
         <GlassCard>
           <GlassCardHeader>

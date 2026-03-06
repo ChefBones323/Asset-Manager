@@ -15,6 +15,9 @@ import GovernanceConsole from "@/pages/GovernanceConsole";
 import FeedDebugger from "@/pages/FeedDebugger";
 import TrustGraphView from "@/pages/TrustGraphView";
 import EventExplorer from "@/pages/EventExplorer";
+import SystemTimeline from "@/pages/SystemTimeline";
+import AIOperator from "@/pages/AIOperator";
+import SettingsPage from "@/pages/SettingsPage";
 
 function AuthenticatedApp() {
   return (
@@ -26,14 +29,9 @@ function AuthenticatedApp() {
         <Route path="/feed" component={FeedDebugger} />
         <Route path="/trust" component={TrustGraphView} />
         <Route path="/events" component={EventExplorer} />
-        <Route path="/settings" component={() => (
-          <div className="h-full flex items-center justify-center" data-testid="settings-page">
-            <div className="text-center space-y-2">
-              <span className="font-mono text-sm text-muted-foreground">Settings</span>
-              <p className="text-xs text-muted-foreground">Configuration panel coming soon</p>
-            </div>
-          </div>
-        )} />
+        <Route path="/timeline" component={SystemTimeline} />
+        <Route path="/ai-operator" component={AIOperator} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </AppShell>

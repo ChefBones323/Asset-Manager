@@ -1,0 +1,370 @@
+REPLIT: BUILD CIVIC MISSION CONTROL INTELLIGENCE LAYER
+
+The platform uses a deterministic event-sourced architecture where all system state derives from the EventStore.
+
+We will now implement the **Mission Control Intelligence Layer**, which adds three major capabilities:
+
+1. SYSTEM TIME MACHINE (historical replay viewer)
+2. PRINT AND EXPORT ENGINE (audit and reporting tools)
+3. CIVIC INTELLIGENCE AI OPERATOR (system analysis assistant)
+
+All functionality must integrate with the existing Mission Control dashboard.
+
+The system must remain deterministic and auditable.
+
+--------------------------------------------------
+
+SYSTEM TIME MACHINE
+
+Create a new page:
+
+pages/SystemTimeline.tsx
+
+Purpose:
+
+Allow operators to explore the entire system timeline and reconstruct system state at any historical event.
+
+--------------------------------------------------
+
+TIMELINE VISUALIZATION
+
+Display a horizontal timeline of system events.
+
+Event types include:
+
+content_created  
+proposal_created  
+proposal_approved  
+policy_activated  
+config_changed  
+worker_heartbeat  
+platform_post_sent  
+platform_publish_failed  
+
+Each event appears as a node on the timeline.
+
+Color coding:
+
+content = blue  
+trust = green  
+governance = purple  
+worker = orange  
+error = red  
+
+--------------------------------------------------
+
+TIMELINE CONTROLS
+
+Add interactive controls:
+
+timeline slider  
+jump to event ID  
+jump to timestamp  
+step forward/back  
+
+Moving the slider reconstructs system state from the EventStore.
+
+This must be read-only.
+
+It must never mutate live state.
+
+--------------------------------------------------
+
+REPLAY PREVIEW PANEL
+
+Create preview panels showing reconstructed state:
+
+Feed state  
+Trust graph state  
+Governance state  
+Worker configuration state  
+
+This preview must use projection replay.
+
+--------------------------------------------------
+
+BACKEND REPLAY SERVICE
+
+Create:
+
+services/replay/replayService.ts
+
+Primary function:
+
+reconstructState(event_id)
+
+This queries the EventStore and rebuilds projections up to the chosen event.
+
+--------------------------------------------------
+
+EVENT FILTERING
+
+Timeline must allow filtering by:
+
+event_type  
+domain  
+actor_id  
+
+--------------------------------------------------
+
+MISSION CONTROL INTEGRATION
+
+Add navigation entry:
+
+System Timeline
+
+Route:
+
+/timeline
+
+--------------------------------------------------
+
+PRINT AND EXPORT ENGINE
+
+Operators must be able to export system views.
+
+Supported exports:
+
+Governance reports  
+Feed snapshots  
+Trust graph analysis  
+Configuration history  
+Event logs  
+
+--------------------------------------------------
+
+EXPORT SERVICE
+
+Create:
+
+services/export/printService.ts
+
+Functions:
+
+printFeedSnapshot()  
+printGovernanceReport()  
+printTrustGraph()  
+printEventLog()  
+printConfigurationHistory()  
+
+--------------------------------------------------
+
+EXPORT FORMATS
+
+Support:
+
+PDF  
+CSV  
+JSON  
+
+Use:
+
+react-to-print  
+or  
+jsPDF  
+
+--------------------------------------------------
+
+PRINT BUTTONS
+
+Add Print / Export buttons to:
+
+GovernanceConsole  
+FeedDebugger  
+TrustGraphView  
+EventExplorer  
+Settings  
+
+Buttons must appear in the top-right corner of each panel.
+
+--------------------------------------------------
+
+REPORT CONTENT
+
+Governance report includes:
+
+proposal history  
+approval votes  
+policy changes  
+
+Feed snapshot includes:
+
+post ranking  
+trust scores  
+policy version  
+
+Trust graph report includes:
+
+top trusted nodes  
+delegation paths  
+network clusters  
+
+Event log export includes:
+
+event_id  
+event_type  
+actor_id  
+timestamp  
+payload  
+
+--------------------------------------------------
+
+PRINT STYLING
+
+Create stylesheet:
+
+styles/print.css
+
+Requirements:
+
+white background  
+black text  
+clean typography  
+remove glass blur effects  
+
+Reports must print cleanly for documentation.
+
+--------------------------------------------------
+
+COMMAND PALETTE INTEGRATION
+
+Add commands:
+
+open system timeline  
+print governance report  
+export event log  
+print feed snapshot  
+print configuration history  
+
+--------------------------------------------------
+
+CIVIC INTELLIGENCE AI OPERATOR
+
+Create a system analysis assistant capable of explaining platform behavior.
+
+The AI must operate in read-only analysis mode.
+
+It must never modify system state.
+
+--------------------------------------------------
+
+CREATE AI PANEL
+
+Component:
+
+components/ai/CivicOperatorPanel.tsx
+
+Panel includes:
+
+operator input field  
+conversation history  
+insight cards  
+suggested queries  
+
+--------------------------------------------------
+
+AI QUERY SERVICE
+
+Create:
+
+services/ai/analysisService.ts
+
+Functions:
+
+analyzeFeedRanking(post_id)  
+explainTrustScore(user_id)  
+tracePolicyImpact(policy_version)  
+findInfluentialNodes(time_range)  
+explainEventChain(event_id)  
+
+--------------------------------------------------
+
+DATA SOURCES
+
+AI analysis must use:
+
+EventStore  
+Feed projections  
+Trust graph projections  
+Governance proposals  
+Configuration change history  
+
+--------------------------------------------------
+
+EXPLANATION OUTPUT
+
+Example explanation:
+
+Post #483 ranked higher because:
+
+policy_version v3 increased trust weighting  
+user reputation score increased  
+recent engagement increased reaction_weight  
+
+Each explanation must reference underlying events.
+
+--------------------------------------------------
+
+INFLUENCE ANALYSIS
+
+The AI must identify:
+
+top trusted actors  
+highest engagement nodes  
+delegation network influence  
+
+--------------------------------------------------
+
+INSIGHT CARDS
+
+Render results as structured cards:
+
+Ranking Explanation  
+Policy Impact  
+Trust Network Insights  
+Configuration Impact  
+
+--------------------------------------------------
+
+MISSION CONTROL INTEGRATION
+
+Add navigation entry:
+
+AI Operator
+
+Route:
+
+/operator
+
+The operator panel can also open as a modal overlay.
+
+--------------------------------------------------
+
+EVENT TRACEABILITY
+
+All AI explanations must link to the Event Explorer so operators can inspect the underlying events.
+
+--------------------------------------------------
+
+SECURITY
+
+Export and AI analysis must respect role permissions.
+
+Operators: full access  
+Moderators: governance and feed reports  
+Citizens: limited public reports only  
+
+--------------------------------------------------
+
+FINAL RESULT
+
+Mission Control will now support:
+
+historical system replay  
+event timeline exploration  
+exportable governance reports  
+printable audit documentation  
+trust graph analysis reports  
+AI explanations of system behavior  
+
+This creates a transparent and explainable civic infrastructure platform.

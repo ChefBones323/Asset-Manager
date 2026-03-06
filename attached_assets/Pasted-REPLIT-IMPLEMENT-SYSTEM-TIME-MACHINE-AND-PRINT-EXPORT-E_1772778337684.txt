@@ -1,0 +1,266 @@
+REPLIT: IMPLEMENT SYSTEM TIME MACHINE AND PRINT / EXPORT ENGINE
+
+The platform uses a deterministic event-sourced architecture where all state derives from the EventStore.
+
+We will now add two major capabilities:
+
+1. SYSTEM TIME MACHINE (historical replay viewer)
+2. PRINT AND EXPORT ENGINE (for reports and audits)
+
+These tools must integrate with the existing Mission Control interface.
+
+All system state must remain deterministic and derived from the EventStore.
+
+--------------------------------------------------
+
+FEATURE 1: SYSTEM TIME MACHINE
+
+Create a new page:
+
+pages/SystemTimeline.tsx
+
+Purpose:
+
+Allow operators to explore and reconstruct the system state at any historical event.
+
+The Time Machine must visualize the full system timeline.
+
+--------------------------------------------------
+
+TIMELINE UI
+
+Display a horizontal timeline of system events.
+
+Event types include:
+
+content_created
+proposal_created
+proposal_approved
+policy_activated
+config_changed
+worker_heartbeat
+
+Each event appears as a node on the timeline.
+
+Color coding must match system domains:
+
+content = blue  
+trust = green  
+governance = purple  
+worker = orange  
+error = red  
+
+--------------------------------------------------
+
+TIMELINE CONTROLS
+
+Add controls to allow operators to move through time.
+
+Controls:
+
+timeline slider  
+jump to event ID  
+jump to timestamp  
+step forward/back  
+
+When the slider moves, the system reconstructs state from the event log.
+
+--------------------------------------------------
+
+REPLAY PREVIEW
+
+Create a replay preview panel showing reconstructed state.
+
+Panels should include:
+
+Feed state  
+Trust graph state  
+Governance policy state  
+Worker configuration state  
+
+The preview must not modify live state.
+
+It is a read-only reconstruction using the event replay engine.
+
+--------------------------------------------------
+
+BACKEND REPLAY SERVICE
+
+Create:
+
+services/replay/replayService.ts
+
+Function:
+
+reconstructState(event_id)
+
+This service queries the EventStore and rebuilds projections up to the chosen event.
+
+--------------------------------------------------
+
+EVENT FILTERING
+
+Allow filtering timeline events by:
+
+domain  
+actor_id  
+event_type  
+
+--------------------------------------------------
+
+MISSION CONTROL INTEGRATION
+
+Add navigation entry:
+
+System Timeline
+
+Route:
+
+/timeline
+
+--------------------------------------------------
+
+FEATURE 2: PRINT AND EXPORT ENGINE
+
+Operators must be able to export and print system views.
+
+Supported exports:
+
+Governance reports  
+Feed snapshots  
+Trust graph analysis  
+Configuration history  
+Event logs  
+
+--------------------------------------------------
+
+PRINT SERVICE
+
+Create:
+
+services/export/printService.ts
+
+Functions:
+
+printFeedSnapshot()
+printGovernanceReport()
+printTrustGraph()
+printEventLog()
+printConfigurationHistory()
+
+--------------------------------------------------
+
+PDF EXPORT
+
+Use:
+
+react-to-print  
+or  
+jsPDF
+
+Export formats:
+
+PDF
+CSV
+JSON
+
+--------------------------------------------------
+
+PRINT BUTTONS
+
+Add Print buttons to the following pages:
+
+GovernanceConsole
+FeedDebugger
+TrustGraphView
+EventExplorer
+Settings
+
+Buttons should appear in the top-right corner of each panel.
+
+--------------------------------------------------
+
+REPORT CONTENT
+
+Governance report should include:
+
+proposal history
+approval votes
+policy changes
+
+Feed snapshot should include:
+
+post ranking
+trust scores
+policy version used
+
+Trust graph report should include:
+
+top trusted nodes
+delegation paths
+cluster analysis
+
+Event log export should include:
+
+event_id
+event_type
+actor_id
+timestamp
+payload
+
+--------------------------------------------------
+
+PRINT STYLING
+
+Create a print stylesheet:
+
+styles/print.css
+
+Requirements:
+
+remove dark backgrounds
+use white background
+black text
+clean typography
+
+Ensure printed reports are readable and professional.
+
+--------------------------------------------------
+
+COMMAND PALETTE INTEGRATION
+
+Add commands:
+
+open system timeline
+export governance report
+print feed snapshot
+export event log
+print configuration history
+
+--------------------------------------------------
+
+SECURITY
+
+Export features must respect role permissions.
+
+Operators can export everything.
+
+Moderators can export governance and feed reports.
+
+Citizens cannot export system logs.
+
+--------------------------------------------------
+
+FINAL RESULT
+
+Mission Control should now support:
+
+historical system replay
+event timeline visualization
+printable governance reports
+exportable event logs
+trust graph analysis reports
+
+The platform becomes fully auditable and transparent.
+
+Implement the complete System Timeline and Print / Export Engine.

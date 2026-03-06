@@ -1,0 +1,185 @@
+REPLIT: IMPLEMENT UNIVERSAL SOCIAL CONNECTOR LAYER
+
+Add a system that allows one post to be published to multiple social platforms.
+
+Supported platforms:
+
+Facebook  
+X (Twitter)  
+LinkedIn  
+Instagram  
+YouTube  
+Reddit  
+Discord  
+
+Publishing must follow the platform architecture:
+
+proposal → approval → manifest → worker → event
+
+No UI component may publish directly to APIs.
+
+All publishing must occur through workers triggered by events.
+
+--------------------------------------------------
+
+CREATE INTEGRATION MODULE
+
+Create directory:
+
+services/integrations/
+
+Files:
+
+connectorRegistry.ts
+publishDispatcher.ts
+
+facebookConnector.ts
+twitterConnector.ts
+linkedinConnector.ts
+instagramConnector.ts
+youtubeConnector.ts
+redditConnector.ts
+discordConnector.ts
+
+--------------------------------------------------
+
+CONNECTOR INTERFACE
+
+Each connector must implement this interface:
+
+export interface SocialConnector {
+  platform: string
+  publish(payload: SocialPostPayload): Promise<any>
+}
+
+--------------------------------------------------
+
+UNIVERSAL POST PAYLOAD
+
+Create file:
+
+interfaces/socialPost.ts
+
+Structure:
+
+export interface SocialPostPayload {
+  content: string
+  media?: string[]
+  tags?: string[]
+  platforms: string[]
+}
+
+--------------------------------------------------
+
+UPDATE SOCIAL COMPOSER
+
+Update:
+
+components/feed/SocialComposer.tsx
+
+Add platform selector.
+
+Example UI:
+
+Platforms
+
+[✓] Civic Feed  
+[✓] Facebook  
+[✓] X  
+[✓] LinkedIn  
+[ ] Instagram  
+[ ] YouTube  
+[ ] Reddit  
+[ ] Discord  
+
+Submitting creates a proposal with:
+
+platforms array.
+
+Example:
+
+{
+ content: "Launching our civic platform",
+ platforms: ["facebook","twitter","linkedin"]
+}
+
+--------------------------------------------------
+
+CREATE SOCIAL PUBLISH WORKER
+
+Create:
+
+workers/socialPublisherWorker.ts
+
+Worker listens for:
+
+content_created events.
+
+If platforms exist:
+
+Send payload to publishDispatcher.
+
+--------------------------------------------------
+
+PUBLISH DISPATCHER
+
+publishDispatcher.ts routes payloads to connectors.
+
+Example:
+
+if(platform === "facebook") {
+ facebookConnector.publish(payload)
+}
+
+if(platform === "twitter") {
+ twitterConnector.publish(payload)
+}
+
+--------------------------------------------------
+
+EVENTS
+
+Every publish action must emit events.
+
+Examples:
+
+facebook_post_sent  
+twitter_post_sent  
+linkedin_post_sent  
+instagram_post_sent  
+youtube_post_sent  
+reddit_post_sent  
+discord_message_sent  
+
+Failures emit:
+
+platform_publish_failed
+
+These events must appear in EventPulsePanel.
+
+--------------------------------------------------
+
+SECURITY
+
+Store API tokens in environment variables.
+
+FACEBOOK_TOKEN  
+TWITTER_API_KEY  
+LINKEDIN_TOKEN  
+DISCORD_WEBHOOK_URL  
+
+Do not hardcode credentials.
+
+--------------------------------------------------
+
+GOAL
+
+Operators should be able to:
+
+write one post  
+select platforms  
+publish once  
+
+The worker system distributes the post across all selected networks.
+
+All actions remain observable and deterministic through the event system.

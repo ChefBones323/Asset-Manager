@@ -3,14 +3,14 @@ import { useLocation } from "wouter";
 import { useUIState } from "@/store/uiState";
 import {
   Search, Terminal, Shield, Rss, Users, Server, Activity, Stethoscope,
-  ArrowRight, Command,
+  ArrowRight, Command, PenSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CommandEntry {
   id: string;
   label: string;
-  category: "governance" | "feed" | "trust" | "infrastructure" | "events" | "diagnostics";
+  category: "governance" | "feed" | "trust" | "infrastructure" | "events" | "diagnostics" | "compose";
   keywords: string[];
   action: () => void;
   icon: typeof Terminal;
@@ -23,6 +23,7 @@ const categoryIcons: Record<string, typeof Terminal> = {
   infrastructure: Server,
   events: Activity,
   diagnostics: Stethoscope,
+  compose: PenSquare,
 };
 
 const categoryColors: Record<string, string> = {
@@ -32,10 +33,11 @@ const categoryColors: Record<string, string> = {
   infrastructure: "text-signal-amber",
   events: "text-chart-1",
   diagnostics: "text-signal-red",
+  compose: "text-signal-blue",
 };
 
 export function CommandPalette() {
-  const { paletteOpen, closePalette } = useUIState();
+  const { paletteOpen, closePalette, openComposer } = useUIState();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,23 +45,24 @@ export function CommandPalette() {
   const [, navigate] = useLocation();
 
   const commands: CommandEntry[] = useMemo(() => [
-    { id: "nav_mission", label: "Open Mission Control", category: "diagnostics", keywords: ["mission", "dashboard", "home"], action: () => navigate("/"), icon: Terminal },
+    { id: "compose_post", label: "Compose New Post", category: "compose", keywords: ["compose", "post", "create", "write", "new"], action: () => openComposer(), icon: PenSquare },
+    { id: "compose_proposal", label: "Create Governance Proposal", category: "compose", keywords: ["create", "proposal", "governance", "vote", "compose"], action: () => openComposer(), icon: Shield },
+    { id: "nav_mission", label: "Open Mission Control", category: "diagnostics", keywords: ["mission", "dashboard", "home"], action: () => navigate("/dashboard"), icon: Terminal },
     { id: "nav_governance", label: "Open Governance Console", category: "governance", keywords: ["governance", "proposals", "voting"], action: () => navigate("/governance"), icon: Shield },
-    { id: "nav_feed_debugger", label: "Open Feed Debugger", category: "feed", keywords: ["feed", "debugger", "ranking", "explain"], action: () => navigate("/feed-debugger"), icon: Rss },
-    { id: "nav_trust", label: "Open Trust Graph", category: "trust", keywords: ["trust", "graph", "reputation", "network"], action: () => navigate("/trust-graph"), icon: Users },
+    { id: "nav_feed_debugger", label: "Open Feed Debugger", category: "feed", keywords: ["feed", "debugger", "ranking", "explain"], action: () => navigate("/feed"), icon: Rss },
+    { id: "nav_trust", label: "Open Trust Graph", category: "trust", keywords: ["trust", "graph", "reputation", "network"], action: () => navigate("/trust"), icon: Users },
     { id: "nav_events", label: "Open Event Explorer", category: "events", keywords: ["events", "explorer", "inspect", "stream"], action: () => navigate("/events"), icon: Activity },
-    { id: "simulate_feed", label: "Simulate Feed Policy", category: "feed", keywords: ["simulate", "feed", "policy", "ranking"], action: () => navigate("/feed-debugger"), icon: Rss },
-    { id: "create_proposal", label: "Create Governance Proposal", category: "governance", keywords: ["create", "proposal", "governance", "vote"], action: () => navigate("/governance"), icon: Shield },
-    { id: "show_workers", label: "Show Active Workers", category: "infrastructure", keywords: ["workers", "active", "lease", "heartbeat"], action: () => navigate("/"), icon: Server },
+    { id: "simulate_feed", label: "Simulate Feed Policy", category: "feed", keywords: ["simulate", "feed", "policy", "ranking"], action: () => navigate("/feed"), icon: Rss },
+    { id: "show_workers", label: "Show Active Workers", category: "infrastructure", keywords: ["workers", "active", "lease", "heartbeat"], action: () => navigate("/dashboard"), icon: Server },
     { id: "inspect_events", label: "Inspect Event Stream", category: "events", keywords: ["inspect", "events", "stream", "filter"], action: () => navigate("/events"), icon: Activity },
-    { id: "explain_ranking", label: "Explain Feed Ranking", category: "feed", keywords: ["explain", "ranking", "score", "breakdown"], action: () => navigate("/feed-debugger"), icon: Rss },
-    { id: "replay_projections", label: "Replay Projections", category: "infrastructure", keywords: ["replay", "projections", "rebuild", "state"], action: () => navigate("/"), icon: Server },
-    { id: "system_health", label: "System Health Check", category: "diagnostics", keywords: ["system", "health", "status", "check"], action: () => navigate("/"), icon: Stethoscope },
-    { id: "inspect_trust", label: "Inspect User Trust", category: "trust", keywords: ["inspect", "trust", "user", "score", "profile"], action: () => navigate("/trust-graph"), icon: Users },
-    { id: "show_dlq", label: "View Dead Letter Queue", category: "infrastructure", keywords: ["dead", "letter", "queue", "dlq", "failed"], action: () => navigate("/"), icon: Server },
+    { id: "explain_ranking", label: "Explain Feed Ranking", category: "feed", keywords: ["explain", "ranking", "score", "breakdown"], action: () => navigate("/feed"), icon: Rss },
+    { id: "replay_projections", label: "Replay Projections", category: "infrastructure", keywords: ["replay", "projections", "rebuild", "state"], action: () => navigate("/dashboard"), icon: Server },
+    { id: "system_health", label: "System Health Check", category: "diagnostics", keywords: ["system", "health", "status", "check"], action: () => navigate("/dashboard"), icon: Stethoscope },
+    { id: "inspect_trust", label: "Inspect User Trust", category: "trust", keywords: ["inspect", "trust", "user", "score", "profile"], action: () => navigate("/trust"), icon: Users },
+    { id: "show_dlq", label: "View Dead Letter Queue", category: "infrastructure", keywords: ["dead", "letter", "queue", "dlq", "failed"], action: () => navigate("/dashboard"), icon: Server },
     { id: "filter_by_domain", label: "Filter Events by Domain", category: "events", keywords: ["filter", "domain", "events", "content", "trust"], action: () => navigate("/events"), icon: Activity },
-    { id: "compare_policies", label: "Compare Feed Policies", category: "feed", keywords: ["compare", "policies", "feed", "weights"], action: () => navigate("/feed-debugger"), icon: Rss },
-  ], [navigate]);
+    { id: "compare_policies", label: "Compare Feed Policies", category: "feed", keywords: ["compare", "policies", "feed", "weights"], action: () => navigate("/feed"), icon: Rss },
+  ], [navigate, openComposer]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return commands;

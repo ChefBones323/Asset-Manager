@@ -5,6 +5,9 @@ interface UIState {
   openPalette: () => void;
   closePalette: () => void;
   togglePalette: () => void;
+  composerOpen: boolean;
+  openComposer: () => void;
+  closeComposer: () => void;
   selectedEventId: string | null;
   setSelectedEventId: (id: string | null) => void;
   activePage: string;
@@ -16,8 +19,11 @@ export const useUIState = create<UIState>((set) => ({
   openPalette: () => set({ paletteOpen: true }),
   closePalette: () => set({ paletteOpen: false }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+  composerOpen: false,
+  openComposer: () => set({ composerOpen: true }),
+  closeComposer: () => set({ composerOpen: false }),
   selectedEventId: null,
   setSelectedEventId: (id) => set({ selectedEventId: id }),
-  activePage: "/",
+  activePage: "/dashboard",
   setActivePage: (page) => set({ activePage: page }),
 }));

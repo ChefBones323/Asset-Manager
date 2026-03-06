@@ -41,6 +41,17 @@ A significant part of the system is the "Social Civic Infrastructure Engine" (`a
 
 The UI/UX adheres to an "Industrial-Glass Dark Graphite" design with a dark palette, electric blue accent, and specific signal colors. It uses Inter, Merriweather, and JetBrains Mono fonts. The Mission Control UI features common components for cards, metrics, and modals, state management with Zustand, and services for typed API interactions and SSE websockets. Performance is a key consideration, with mechanisms like CircularBuffer and `React.memo`.
 
+## AppShell Architecture (SPA Layout)
+The UI is a persistent single-page application using an AppShell layout:
+- `AppShell.tsx` — persistent shell with NavigationRail + SystemTopBar + content outlet + status bar footer
+- `NavigationRail.tsx` — left vertical rail (56px collapsed, 192px on hover) with icons, active indicator, tooltips via hover-expand
+- `SystemTopBar.tsx` — top bar with CIVIC MISSION CONTROL title, Compose button, connection status, event rate, palette trigger, logout
+- `SocialComposer.tsx` — modal overlay for creating posts and governance proposals (no page navigation)
+- All create actions open in modals; no per-page headers or back buttons
+- Routes: `/dashboard`, `/governance`, `/feed`, `/trust`, `/events`, `/settings`; `/` redirects to `/dashboard`
+- `CommandPalette` (Cmd+K) and `SocialComposer` are rendered at the App level, accessible from all pages
+- `uiState.ts` manages `paletteOpen`, `composerOpen`, `activePage`
+
 ## External Dependencies
 - **Frontend Framework**: React
 - **Backend Framework**: Express.js

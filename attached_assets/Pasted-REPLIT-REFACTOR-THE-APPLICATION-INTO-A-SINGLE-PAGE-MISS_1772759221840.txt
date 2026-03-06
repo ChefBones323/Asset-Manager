@@ -1,0 +1,150 @@
+REPLIT: REFACTOR THE APPLICATION INTO A SINGLE PAGE MISSION CONTROL INTERFACE
+
+Convert the current app into a **Single Page Application (SPA)** with a persistent layout shell and left navigation rail.
+
+The interface must behave like a **Mission Control dashboard**, not a page-based website.
+
+Do NOT reload the page when navigating.
+
+Use React Router with an Outlet layout.
+
+--------------------------------------------------
+
+CREATE A PERSISTENT APP SHELL
+
+Create a new layout component:
+
+components/layout/AppShell.tsx
+
+Structure:
+
+Left Navigation Rail  
+Top System Bar  
+Main Workspace Outlet  
+
+Layout:
+
+| NavigationRail | Workspace |
+|                |           |
+|                |           |
+
+The workspace area should render routes using:
+
+<Outlet />
+
+--------------------------------------------------
+
+LEFT NAVIGATION RAIL
+
+Create:
+
+components/layout/NavigationRail.tsx
+
+Pinned vertical rail on the left.
+
+Use lucide-react icons.
+
+Navigation items:
+
+Mission Control  
+/dashboard  
+
+Governance  
+/governance  
+
+Civic Feed  
+/feed  
+
+Trust Graph  
+/trust  
+
+Event Explorer  
+/events  
+
+Settings  
+/settings  
+
+Behavior requirements:
+
+• Navigation must not reload the page  
+• State must remain intact  
+• Tooltips appear on hover  
+• Rail expands slightly on hover  
+
+--------------------------------------------------
+
+UPDATE ROUTING
+
+Refactor routing so everything runs inside AppShell.
+
+Example structure:
+
+<AppShell>
+   <NavigationRail/>
+   <SystemTopBar/>
+   <Outlet/>
+</AppShell>
+
+Routes rendered in Outlet:
+
+MissionControl
+GovernanceConsole
+Feed
+TrustGraph
+EventExplorer
+
+--------------------------------------------------
+
+GLOBAL COMMAND PALETTE
+
+Ensure CommandPalette is accessible everywhere.
+
+Shortcut:
+
+CMD + K  
+CTRL + K
+
+Component:
+
+components/palette/CommandPalette.tsx
+
+The palette must open as a floating modal without changing routes.
+
+--------------------------------------------------
+
+GLOBAL COMPOSE BUTTON
+
+Add a "Compose" button to SystemTopBar.
+
+Clicking Compose opens:
+
+SocialComposer modal.
+
+Do not navigate away from the current view.
+
+--------------------------------------------------
+
+INTERFACE BEHAVIOR
+
+All create actions must open in modal overlays.
+
+Examples:
+
+Create post → modal  
+Create proposal → modal  
+
+Never redirect to a new page.
+
+--------------------------------------------------
+
+GOAL
+
+The UI must behave like a **Mission Control workspace**.
+
+Navigation should feel instant.
+
+No page reloads.
+
+No back-button dependence.
+
+The left navigation rail should remain visible at all times.

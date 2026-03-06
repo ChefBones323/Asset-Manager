@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { CommandPalette } from "@/components/palette/CommandPalette";
+import { SocialComposer } from "@/components/compose/SocialComposer";
+import { AppShell } from "@/components/layout/AppShell";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import MissionControl from "@/pages/MissionControl";
@@ -14,7 +16,31 @@ import FeedDebugger from "@/pages/FeedDebugger";
 import TrustGraphView from "@/pages/TrustGraphView";
 import EventExplorer from "@/pages/EventExplorer";
 
-function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
+function AuthenticatedApp() {
+  return (
+    <AppShell>
+      <Switch>
+        <Route path="/" component={() => <Redirect to="/dashboard" />} />
+        <Route path="/dashboard" component={MissionControl} />
+        <Route path="/governance" component={GovernanceConsole} />
+        <Route path="/feed" component={FeedDebugger} />
+        <Route path="/trust" component={TrustGraphView} />
+        <Route path="/events" component={EventExplorer} />
+        <Route path="/settings" component={() => (
+          <div className="h-full flex items-center justify-center" data-testid="settings-page">
+            <div className="text-center space-y-2">
+              <span className="font-mono text-sm text-muted-foreground">Settings</span>
+              <p className="text-xs text-muted-foreground">Configuration panel coming soon</p>
+            </div>
+          </div>
+        )} />
+        <Route component={NotFound} />
+      </Switch>
+    </AppShell>
+  );
+}
+
+function AppGate() {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -32,21 +58,7 @@ function ProtectedRoute({ component: Component }: { component: () => JSX.Element
     return <LoginPage />;
   }
 
-  return <Component />;
-}
-
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={() => <ProtectedRoute component={MissionControl} />} />
-      <Route path="/governance" component={() => <ProtectedRoute component={GovernanceConsole} />} />
-      <Route path="/feed-debugger" component={() => <ProtectedRoute component={FeedDebugger} />} />
-      <Route path="/trust-graph" component={() => <ProtectedRoute component={TrustGraphView} />} />
-      <Route path="/events" component={() => <ProtectedRoute component={EventExplorer} />} />
-      <Route path="/login" component={LoginPage} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+  return <AuthenticatedApp />;
 }
 
 function App() {
@@ -56,7 +68,8 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <CommandPalette />
-          <Router />
+          <SocialComposer />
+          <AppGate />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

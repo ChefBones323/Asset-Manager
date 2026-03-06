@@ -1,12 +1,10 @@
 import { useState, useCallback } from "react";
-import { Link } from "wouter";
 import { TrustGraph, type TrustNode, type TrustEdge } from "@/components/trust/TrustGraph";
-import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardBody } from "@/components/common/Card";
+import { GlassCard, GlassCardBody } from "@/components/common/Card";
 import { Metric, MetricRow } from "@/components/common/Metric";
 import { GlassModal } from "@/components/common/Modal";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Users, Command, Filter } from "lucide-react";
-import { useUIState } from "@/store/uiState";
+import { Filter } from "lucide-react";
 
 const DEMO_NODES: TrustNode[] = [
   { id: "user-1", label: "CivicMod", trust_score: 85, group: "moderator" },
@@ -32,7 +30,6 @@ const DEMO_EDGES: TrustEdge[] = [
 ];
 
 export default function TrustGraphView() {
-  const { openPalette } = useUIState();
   const [selectedNode, setSelectedNode] = useState<TrustNode | null>(null);
   const [minTrust, setMinTrust] = useState(-100);
 
@@ -44,64 +41,51 @@ export default function TrustGraphView() {
   const filteredEdges = DEMO_EDGES.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" data-testid="trust-graph-view">
-      <header className="glass-panel border-b border-white/[0.06] px-4 py-2 flex items-center gap-3 shrink-0">
-        <Link href="/" className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors" data-testid="nav-back">
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <Users className="w-4 h-4 text-signal-green" />
-        <span className="font-mono text-sm font-bold tracking-tight text-foreground">TRUST GRAPH</span>
-        <button onClick={openPalette} className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.04]" data-testid="btn-palette">
-          <Command className="w-3 h-3" />K
-        </button>
-      </header>
+    <div className="h-full flex flex-col lg:flex-row gap-0 overflow-hidden" data-testid="trust-graph-view">
+      <div className="lg:w-56 glass-panel border-r border-white/[0.06] p-3 space-y-3 shrink-0 overflow-y-auto">
+        <div className="flex items-center gap-1.5">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="mono-label">Filters</span>
+        </div>
+        <div className="space-y-1.5">
+          <label className="mono-label text-[10px]">Min Trust Score: {minTrust}</label>
+          <input
+            type="range"
+            min={-100}
+            max={100}
+            value={minTrust}
+            onChange={(e) => setMinTrust(Number(e.target.value))}
+            className="w-full accent-primary"
+            data-testid="filter-min-trust"
+          />
+        </div>
+        <MetricRow className="flex-col">
+          <Metric label="Nodes" value={filteredNodes.length} signal="green" data-testid="metric-nodes" />
+          <Metric label="Edges" value={filteredEdges.length} signal="blue" data-testid="metric-edges" />
+        </MetricRow>
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden">
-        <div className="lg:w-64 glass-panel border-r border-white/[0.06] p-3 space-y-3 shrink-0 overflow-y-auto">
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="mono-label">Filters</span>
+        <div className="space-y-1">
+          <span className="mono-label text-[10px]">Legend</span>
+          <div className="space-y-1 text-[10px]">
+            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" /><span className="text-muted-foreground">High Trust (&ge;70)</span></div>
+            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]" /><span className="text-muted-foreground">Medium (30-70)</span></div>
+            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#eab308]" /><span className="text-muted-foreground">Low (0-30)</span></div>
+            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" /><span className="text-muted-foreground">Negative (&lt;0)</span></div>
           </div>
-          <div className="space-y-1.5">
-            <label className="mono-label text-[10px]">Min Trust Score: {minTrust}</label>
-            <input
-              type="range"
-              min={-100}
-              max={100}
-              value={minTrust}
-              onChange={(e) => setMinTrust(Number(e.target.value))}
-              className="w-full accent-primary"
-              data-testid="filter-min-trust"
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 p-2">
+        <GlassCard className="h-full" variant="elevated">
+          <GlassCardBody className="h-full p-0">
+            <TrustGraph
+              nodes={filteredNodes}
+              edges={filteredEdges}
+              onNodeClick={handleNodeClick}
             />
-          </div>
-          <MetricRow className="flex-col">
-            <Metric label="Nodes" value={filteredNodes.length} signal="green" data-testid="metric-nodes" />
-            <Metric label="Edges" value={filteredEdges.length} signal="blue" data-testid="metric-edges" />
-          </MetricRow>
-
-          <div className="space-y-1">
-            <span className="mono-label text-[10px]">Legend</span>
-            <div className="space-y-1 text-[10px]">
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" /><span className="text-muted-foreground">High Trust (&ge;70)</span></div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]" /><span className="text-muted-foreground">Medium (30-70)</span></div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#eab308]" /><span className="text-muted-foreground">Low (0-30)</span></div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" /><span className="text-muted-foreground">Negative (&lt;0)</span></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 p-2">
-          <GlassCard className="h-full" variant="elevated">
-            <GlassCardBody className="h-full p-0">
-              <TrustGraph
-                nodes={filteredNodes}
-                edges={filteredEdges}
-                onNodeClick={handleNodeClick}
-              />
-            </GlassCardBody>
-          </GlassCard>
-        </div>
-      </main>
+          </GlassCardBody>
+        </GlassCard>
+      </div>
 
       <GlassModal open={!!selectedNode} onClose={handleClose} title="Trust Profile" size="sm" data-testid="trust-node-modal">
         {selectedNode && (

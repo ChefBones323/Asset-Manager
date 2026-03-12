@@ -1,0 +1,56 @@
+# ─── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Build Artifacts ─────────────────────────────────────────────────────────
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vite/
+*.tsbuildinfo
+
+# ─── Environment & Secrets ───────────────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── Testing ─────────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ─── OS & Editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── Replit ──────────────────────────────────────────────────────────────────
+.replit
+replit.nix
+.cache/
+.config/
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+*.tgz
+*.zip
+.turbo/

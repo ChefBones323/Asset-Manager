@@ -1,0 +1,440 @@
+REPLIT: IMPLEMENT MINIMAL OPENCLAW OPERATOR INTEGRATION
+
+This repository already contains a working deterministic civic platform with:
+
+• Mission Control UI
+• Execution Engine
+• Governance approval pipeline
+• Worker system
+• EventStore
+• CommandPalette
+• replay/export services
+
+DO NOT rebuild these systems.
+
+Your task is to install a **minimal AI operator runtime layer** on top of the existing architecture.
+
+The operator must:
+
+• plan tasks
+• select tools
+• execute actions
+• store memory
+• respect approval policies
+• schedule tasks
+
+All execution must pass through the existing deterministic pipeline.
+
+NEVER allow the agent to mutate system state directly.
+
+All side-effects must flow through:
+
+proposal → approval → execution engine → worker → eventstore
+
+
+
+---------------------------------------------------
+STEP 1 — CREATE DIRECTORY STRUCTURE
+---------------------------------------------------
+
+Create the following directories.
+
+server/agent_runtime
+server/agent_runtime/tools
+server/agent_runtime/skills
+server/agent_runtime/config
+
+
+
+---------------------------------------------------
+STEP 2 — CREATE CORE OPERATOR FILES
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/agent_runtime.py
+
+Purpose:
+Main OpenClaw-style runtime loop.
+
+Implementation outline:
+
+class AgentRuntime:
+
+    def __init__(self):
+        load prompts
+        load tools
+        initialize memory
+
+    def run_task(self, user_input):
+
+        context = build_runtime_context(user_input)
+
+        for step in range(max_iterations):
+
+            plan = generate_plan(context)
+
+            tool_request = select_tool(plan)
+
+            result = execute_tool(tool_request)
+
+            context = update_context(context, result)
+
+            if task_complete(context):
+                break
+
+
+
+---------------------------------------------------
+STEP 3 — RUNTIME CONTEXT
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/runtime_context.py
+
+Purpose:
+Build runtime context for the agent.
+
+Context must include:
+
+• current user request
+• recent events from EventStore
+• agent memory
+• system state snapshot
+
+
+
+---------------------------------------------------
+STEP 4 — TOOL REGISTRY
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/tool_registry.py
+
+Register tools:
+
+filesystem_read
+filesystem_write
+web_search
+browser_open
+skill_run
+
+Structure:
+
+TOOLS = {
+   "filesystem_read": filesystem_read,
+   "filesystem_write": filesystem_write,
+   "web_search": web_search,
+   "browser_open": browser_open,
+   "skill_run": skill_run
+}
+
+
+
+---------------------------------------------------
+STEP 5 — TOOL ROUTER
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/tool_router.py
+
+Purpose:
+
+Route tool calls safely.
+
+All tools must pass through:
+
+policy_guard → proposal_service → execution_engine
+
+Example flow:
+
+agent
+  ↓
+tool_router
+  ↓
+policy_guard
+  ↓
+proposal_service
+  ↓
+execution_engine
+
+
+
+---------------------------------------------------
+STEP 6 — PROMPT LOADER
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/prompt_loader.py
+
+Prompts must be loaded from config files.
+
+Load:
+
+config/system_prompt.yaml
+config/developer_prompt.yaml
+
+Do NOT hardcode prompts.
+
+
+
+---------------------------------------------------
+STEP 7 — MEMORY SERVICE
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/memory_service.py
+
+Persistent memory categories:
+
+profile
+preference
+project
+relationship
+operational
+open_loop
+
+Store in table:
+
+agent_memory
+
+Fields:
+
+id
+category
+key
+value
+created_at
+updated_at
+
+
+
+---------------------------------------------------
+STEP 8 — POLICY GUARD
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/policy_guard.py
+
+Controls tool permissions.
+
+Policies:
+
+AUTO RUN
+
+filesystem_read
+web_search
+
+CONFIRMATION REQUIRED
+
+browser_open
+email_send
+
+DESTRUCTIVE APPROVAL REQUIRED
+
+filesystem_write
+database_write
+
+Policy guard must block unsafe execution.
+
+
+
+---------------------------------------------------
+STEP 9 — SCHEDULER SERVICE
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/scheduler_service.py
+
+Allow background tasks.
+
+Examples:
+
+monitor_worker_health every 5 minutes
+generate_governance_report daily
+
+
+
+---------------------------------------------------
+STEP 10 — IMPLEMENT TOOL FILES
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/tools/filesystem_read.py
+server/agent_runtime/tools/filesystem_write.py
+server/agent_runtime/tools/web_search.py
+server/agent_runtime/tools/browser_open.py
+server/agent_runtime/tools/skill_run.py
+
+Each tool must expose:
+
+name
+description
+input_schema
+execute()
+
+
+
+---------------------------------------------------
+STEP 11 — CREATE SKILL DEFINITIONS
+---------------------------------------------------
+
+Create YAML skill files.
+
+server/agent_runtime/skills/monitor_worker_health.yaml
+
+Example:
+
+name: monitor_worker_health
+
+steps:
+
+  - tool: web_search
+    args:
+      query: "worker monitoring best practices"
+
+
+
+Create:
+
+server/agent_runtime/skills/publish_governance_report.yaml
+
+
+
+---------------------------------------------------
+STEP 12 — PROMPT CONFIG FILES
+---------------------------------------------------
+
+Create:
+
+server/agent_runtime/config/system_prompt.yaml
+
+assistant_role: |
+  You are a deterministic execution assistant.
+  You prioritize completing tasks using tools rather than conversation.
+  All actions must route through the execution engine.
+
+
+
+Create:
+
+server/agent_runtime/config/developer_prompt.yaml
+
+execution_mode: tool_first
+max_iterations: 20
+approval_required_for_side_effects: true
+
+
+
+Create:
+
+server/agent_runtime/config/agent_config.yaml
+
+max_iterations: 20
+memory_enabled: true
+scheduler_enabled: true
+
+
+
+---------------------------------------------------
+STEP 13 — INTEGRATE INTO SERVER ENTRYPOINT
+---------------------------------------------------
+
+Modify:
+
+server/main.py
+
+Add:
+
+from agent_runtime.agent_runtime import AgentRuntime
+
+agent_runtime = AgentRuntime()
+
+
+
+---------------------------------------------------
+STEP 14 — COMMAND PALETTE INTEGRATION
+---------------------------------------------------
+
+Update the existing CommandPalette so operators can trigger the agent.
+
+Add commands:
+
+run_operator_task
+analyze_system
+diagnose_feed
+trace_event_chain
+
+Command flow:
+
+CommandPalette
+   ↓
+AgentRuntime.run_task()
+
+
+
+---------------------------------------------------
+STEP 15 — ENFORCE EXECUTION PIPELINE
+---------------------------------------------------
+
+Important rule:
+
+The agent must never mutate system state directly.
+
+All actions must follow:
+
+agent
+   ↓
+tool_request
+   ↓
+proposal_service
+   ↓
+approval_policy
+   ↓
+execution_engine
+   ↓
+worker
+   ↓
+eventstore
+
+
+
+---------------------------------------------------
+FINAL RESULT
+---------------------------------------------------
+
+The platform architecture becomes:
+
+Mission Control UI
+        │
+AI Operator Runtime
+        │
+Tool Registry
+        │
+Execution Engine
+        │
+Workers
+        │
+EventStore
+
+
+The AI operator can:
+
+• plan multi-step tasks
+• execute tools
+• run skills
+• store memory
+• schedule background tasks
+• respect governance approvals
+
+while preserving deterministic system behavior.
+
+Implement all files and wire them into the existing architecture.

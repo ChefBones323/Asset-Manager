@@ -1,0 +1,12 @@
+name: Feed Analysis
+description: Analyze feed ranking algorithm behavior and content distribution
+version: "1.0"
+steps:
+  - tool: filesystem_read
+    args:
+      path: "/feed/config"
+    description: Read feed configuration
+  - tool: web_search
+    args:
+      query: "content ranking algorithm analysis"
+    description: Research ranking patterns

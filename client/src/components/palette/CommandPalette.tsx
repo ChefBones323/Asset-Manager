@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 interface CommandEntry {
   id: string;
   label: string;
-  category: "governance" | "feed" | "trust" | "infrastructure" | "events" | "diagnostics" | "compose" | "intelligence" | "export";
+  category: "governance" | "feed" | "trust" | "infrastructure" | "events" | "diagnostics" | "compose" | "intelligence" | "export" | "operator";
   keywords: string[];
   action: () => void;
   icon: typeof Terminal;
@@ -26,6 +26,7 @@ const categoryIcons: Record<string, typeof Terminal> = {
   compose: PenSquare,
   intelligence: Brain,
   export: Download,
+  operator: Brain,
 };
 
 const categoryColors: Record<string, string> = {
@@ -38,10 +39,11 @@ const categoryColors: Record<string, string> = {
   compose: "text-signal-blue",
   intelligence: "text-signal-amber",
   export: "text-signal-green",
+  operator: "text-signal-amber",
 };
 
 export function CommandPalette() {
-  const { paletteOpen, closePalette, openComposer } = useUIState();
+  const { paletteOpen, closePalette, openComposer, openAgentModal } = useUIState();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,7 +78,11 @@ export function CommandPalette() {
     { id: "export_trust", label: "Export Trust Graph", category: "export", keywords: ["export", "trust", "graph", "pdf", "csv"], action: () => navigate("/trust"), icon: Download },
     { id: "export_events", label: "Export Event Log", category: "export", keywords: ["export", "events", "log", "pdf", "csv", "json"], action: () => navigate("/events"), icon: Download },
     { id: "export_config", label: "Export Configuration History", category: "export", keywords: ["export", "config", "configuration", "history", "settings", "policy"], action: () => navigate("/settings"), icon: Download },
-  ], [navigate, openComposer]);
+    { id: "agent_run_task", label: "Run Operator Task", category: "operator", keywords: ["agent", "operator", "run", "task", "openclaw", "execute"], action: () => openAgentModal(), icon: Brain },
+    { id: "agent_analyze_system", label: "Operator: Analyze System", category: "operator", keywords: ["agent", "analyze", "system", "health", "operator"], action: () => openAgentModal("Analyze system health and status"), icon: Brain },
+    { id: "agent_diagnose_feed", label: "Operator: Diagnose Feed", category: "operator", keywords: ["agent", "diagnose", "feed", "ranking", "operator"], action: () => openAgentModal("Diagnose feed ranking behavior"), icon: Brain },
+    { id: "agent_trace_events", label: "Operator: Trace Events", category: "operator", keywords: ["agent", "trace", "events", "chain", "operator"], action: () => openAgentModal("Trace recent event chains and patterns"), icon: Brain },
+  ], [navigate, openComposer, openAgentModal]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return commands;

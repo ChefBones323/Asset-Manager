@@ -1,0 +1,12 @@
+name: System Health Check
+description: Run a comprehensive health check across all subsystems
+version: "1.0"
+steps:
+  - tool: filesystem_read
+    args:
+      path: "/health"
+    description: Check service health endpoint
+  - tool: web_search
+    args:
+      query: "system health metrics"
+    description: Gather health benchmark data

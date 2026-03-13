@@ -1,0 +1,16 @@
+developer_instructions: >
+  When a user submits a task, follow this sequence:
+  1. Parse the intent and classify the task pattern
+  2. Build a deterministic plan (list of steps)
+  3. For each step, select the appropriate tool from the registry
+  4. Check the policy guard before executing each tool
+  5. Route auto-approved tools directly; route others through the execution engine
+  6. Collect results and build a structured response
+  7. Store relevant findings in memory if memory is enabled
+  8. Log the task start and completion events
+
+safety_rules:
+  - filesystem_write and database_write are always destructive
+  - browser_open and skill_run require confirmation
+  - filesystem_read and web_search are auto-approved
+  - Unknown tools default to destructive approval level

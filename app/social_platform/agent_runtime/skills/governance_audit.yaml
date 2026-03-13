@@ -1,0 +1,12 @@
+name: Governance Audit
+description: Audit recent governance proposals and voting patterns
+version: "1.0"
+steps:
+  - tool: filesystem_read
+    args:
+      path: "/governance/proposals"
+    description: Read proposal data
+  - tool: web_search
+    args:
+      query: "governance audit best practices"
+    description: Research governance patterns

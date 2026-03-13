@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { CommandPalette } from "@/components/palette/CommandPalette";
 import { SocialComposer } from "@/components/compose/SocialComposer";
+import { AgentTaskModal } from "@/components/ai/AgentTaskModal";
 import { AppShell } from "@/components/layout/AppShell";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
@@ -67,6 +68,7 @@ function App() {
           <Toaster />
           <CommandPalette />
           <SocialComposer />
+          <AgentTaskModal />
           <AppGate />
         </TooltipProvider>
       </ThemeProvider>

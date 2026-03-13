@@ -83,9 +83,25 @@ Three intelligence capabilities integrated into Mission Control:
 - **Page**: `pages/AIOperator.tsx` — wrapper for CivicOperatorPanel
 - **Pattern**: Read-only analysis; never modifies system state; `AnalysisResult` has type/title/summary/details/referencedEvents/confidence
 
+### OpenClaw Operator Runtime
+- **Module**: `app/social_platform/agent_runtime/` — AI operator layer that plans tasks, selects tools, and executes actions
+- **Core**: `agent_runtime.py` — `AgentRuntime` class with task pattern matching, tool execution loop, memory storage, event logging
+- **Tool Registry**: `tool_registry.py` — `ToolSpec` + `ToolRegistry` for registering and listing available tools
+- **Tool Router**: `tool_router.py` — routes tool calls through `PolicyGuard`; auto-approved tools execute directly, others create governance proposals via `ExecutionEngine`
+- **Policy Guard**: `policy_guard.py` — approval levels: `auto` (filesystem_read, web_search), `confirmation` (browser_open, skill_run), `destructive` (filesystem_write, database_write)
+- **Tools**: `tools/filesystem_read.py`, `filesystem_write.py`, `web_search.py`, `browser_open.py`, `skill_run.py` — each exposes `name`, `description`, `input_schema`, `execute()`
+- **Memory**: `memory_service.py` + `models/agent_memory.py` — persistent agent memory with categories (profile/preference/project/operational/open_loop)
+- **Scheduler**: `scheduler_service.py` — background task scheduler with default health check and governance report tasks
+- **Config**: `config/system_prompt.yaml`, `developer_prompt.yaml`, `agent_config.yaml` — YAML-based configuration
+- **Skills**: `skills/system_health_check.yaml`, `governance_audit.yaml`, `feed_analysis.yaml` — predefined multi-step tool sequences
+- **Routes**: `routes_agent.py` — FastAPI endpoints: POST `/admin/agent/run`, GET/POST `/admin/agent/memory`, DELETE `/admin/agent/memory/{id}`, GET `/admin/agent/tools`, GET `/admin/agent/scheduler`, POST `/admin/agent/scheduler/{task_id}/run`
+- **Frontend**: `services/agentApi.ts` (typed fetch wrapper), `components/ai/AgentTaskModal.tsx` (modal with task input, plan display, tool call steps with expand/collapse)
+- **UI Integration**: `uiState.ts` has `agentModalOpen`/`agentModalTask`; `CommandPalette` has 4 `operator` category commands; `AgentTaskModal` rendered at App level
+- **Governance Flow**: All write/destructive tools route through `ExecutionEngine.submit_proposal()` → governance pipeline → human approval → execution
+
 ### Navigation & Commands
 - NavigationRail: Added "Time Machine" (Clock icon) and "AI Operator" (Brain icon) nav items
-- CommandPalette: Added `intelligence` and `export` command categories with new commands for timeline, AI operator, replay, analysis, and exports
+- CommandPalette: Added `intelligence`, `export`, and `operator` command categories with commands for timeline, AI operator, replay, analysis, exports, and agent tasks
 - Routes: `/timeline` → SystemTimeline, `/ai-operator` → AIOperator
 
 ## External Dependencies

@@ -1,0 +1,5 @@
+max_iterations: 20
+memory_enabled: true
+scheduler_enabled: true
+default_confidence: 0.75
+log_level: INFO

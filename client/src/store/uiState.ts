@@ -12,6 +12,10 @@ interface UIState {
   setSelectedEventId: (id: string | null) => void;
   activePage: string;
   setActivePage: (page: string) => void;
+  agentModalOpen: boolean;
+  agentModalTask: string | null;
+  openAgentModal: (task?: string) => void;
+  closeAgentModal: () => void;
 }
 
 export const useUIState = create<UIState>((set) => ({
@@ -26,4 +30,8 @@ export const useUIState = create<UIState>((set) => ({
   setSelectedEventId: (id) => set({ selectedEventId: id }),
   activePage: "/dashboard",
   setActivePage: (page) => set({ activePage: page }),
+  agentModalOpen: false,
+  agentModalTask: null,
+  openAgentModal: (task) => set({ agentModalOpen: true, agentModalTask: task || null }),
+  closeAgentModal: () => set({ agentModalOpen: false, agentModalTask: null }),
 }));

@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 from app.social_platform.infrastructure.event_store import EventStore
 from app.social_platform.agent_runtime.prompt_loader import load_system_prompt, load_agent_config
 from app.social_platform.agent_runtime.tool_registry import build_default_registry, ToolRegistry
-from app.social_platform.agent_runtime.tool_router import ToolRouter
+from app.social_platform.agent_runtime.tool_router import ToolRouter, AUTO_APPROVER_ID
 from app.social_platform.agent_runtime.policy_guard import PolicyGuard
 from app.social_platform.agent_runtime.memory_service import MemoryService
 from app.social_platform.agent_runtime.runtime_context import RuntimeContext
@@ -197,6 +197,19 @@ class AgentRuntime:
                     },
                     description=f"Agent stores operational memory for task: {user_input[:60]}",
                 )
+                proposal_id = proposal["proposal_id"]
+
+                self._execution_engine.approve(
+                    proposal_id=proposal_id,
+                    approver_id=AUTO_APPROVER_ID,
+                    reason="Auto-approved: operational memory write for task result",
+                )
+
+                execution_result = self._execution_engine.execute(
+                    proposal_id=proposal_id,
+                    worker_id=f"agent_worker_{AGENT_ACTOR_ID.hex[:8]}",
+                )
+
                 context.tool_calls.append({
                     "step": context.iteration + 1,
                     "tool": "memory_store",
@@ -204,13 +217,14 @@ class AgentRuntime:
                     "description": "Store task result in agent memory",
                 })
                 context.results.append({
-                    "status": "proposal_created",
-                    "proposal_id": proposal["proposal_id"],
-                    "approval_level": "confirmation",
-                    "message": "Memory write routed through governance pipeline.",
+                    "status": "success",
+                    "proposal_id": proposal_id,
+                    "execution_id": execution_result.get("execution_id"),
+                    "approval": "auto",
+                    "message": "Memory stored via governed pipeline (proposal → approve → execute).",
                 })
             except Exception as exc:
-                logger.warning(f"Failed to create memory proposal: {exc}")
+                logger.warning(f"Failed to store memory via governance pipeline: {exc}")
 
         self._event_store.append_event(
             domain="agent_runtime",

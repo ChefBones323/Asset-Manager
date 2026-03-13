@@ -79,9 +79,9 @@ export function CommandPalette() {
     { id: "export_events", label: "Export Event Log", category: "export", keywords: ["export", "events", "log", "pdf", "csv", "json"], action: () => navigate("/events"), icon: Download },
     { id: "export_config", label: "Export Configuration History", category: "export", keywords: ["export", "config", "configuration", "history", "settings", "policy"], action: () => navigate("/settings"), icon: Download },
     { id: "agent_run_task", label: "Run Operator Task", category: "operator", keywords: ["agent", "operator", "run", "task", "openclaw", "execute"], action: () => openAgentModal(), icon: Brain },
-    { id: "agent_analyze_system", label: "Operator: Analyze System", category: "operator", keywords: ["agent", "analyze", "system", "health", "operator"], action: () => openAgentModal("Analyze system health and status"), icon: Brain },
-    { id: "agent_diagnose_feed", label: "Operator: Diagnose Feed", category: "operator", keywords: ["agent", "diagnose", "feed", "ranking", "operator"], action: () => openAgentModal("Diagnose feed ranking behavior"), icon: Brain },
-    { id: "agent_trace_events", label: "Operator: Trace Events", category: "operator", keywords: ["agent", "trace", "events", "chain", "operator"], action: () => openAgentModal("Trace recent event chains and patterns"), icon: Brain },
+    { id: "agent_analyze_system", label: "Analyze System", category: "operator", keywords: ["agent", "analyze", "system", "health", "operator"], action: () => openAgentModal("Analyze system health and status"), icon: Brain },
+    { id: "agent_diagnose_feed", label: "Diagnose Feed", category: "operator", keywords: ["agent", "diagnose", "feed", "ranking", "operator"], action: () => openAgentModal("Diagnose feed ranking behavior"), icon: Brain },
+    { id: "agent_trace_events", label: "Trace Event Chain", category: "operator", keywords: ["agent", "trace", "events", "chain", "operator"], action: () => openAgentModal("Trace recent event chains and patterns"), icon: Brain },
   ], [navigate, openComposer, openAgentModal]);
 
   const filtered = useMemo(() => {

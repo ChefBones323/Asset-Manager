@@ -1,10 +1,11 @@
+import uuid
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.social_platform.agent_runtime.agent_runtime import AgentRuntime
+from app.social_platform.agent_runtime.agent_runtime import AgentRuntime, AGENT_ACTOR_ID
 from app.social_platform.infrastructure.event_store import EventStore
 
 logger = logging.getLogger("agent_runtime.routes")
@@ -58,16 +59,26 @@ def get_agent_memory(category: Optional[str] = None, limit: int = 50):
 def store_agent_memory(request: MemoryStoreRequest):
     try:
         runtime = _get_runtime()
-        memory = runtime.memory_service.store(
-            category=request.category,
-            key=request.key,
-            value=request.value,
+        proposal = runtime.execution_engine.submit_proposal(
+            actor_id=AGENT_ACTOR_ID,
+            domain="agent_runtime",
+            action="store_memory",
+            payload={
+                "category": request.category,
+                "key": request.key,
+                "value": request.value,
+            },
+            description=f"Store agent memory: {request.category}/{request.key}",
         )
-        return memory
+        return {
+            "status": "proposal_created",
+            "proposal_id": proposal["proposal_id"],
+            "message": "Memory store routed through governance pipeline for approval.",
+        }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        logger.error(f"Memory store failed: {exc}")
+        logger.error(f"Memory store proposal failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -75,14 +86,20 @@ def store_agent_memory(request: MemoryStoreRequest):
 def delete_agent_memory(memory_id: str):
     try:
         runtime = _get_runtime()
-        deleted = runtime.memory_service.delete(memory_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Memory not found")
-        return {"status": "deleted", "id": memory_id}
-    except HTTPException:
-        raise
+        proposal = runtime.execution_engine.submit_proposal(
+            actor_id=AGENT_ACTOR_ID,
+            domain="agent_runtime",
+            action="delete_memory",
+            payload={"memory_id": memory_id},
+            description=f"Delete agent memory: {memory_id}",
+        )
+        return {
+            "status": "proposal_created",
+            "proposal_id": proposal["proposal_id"],
+            "message": "Memory delete routed through governance pipeline for approval.",
+        }
     except Exception as exc:
-        logger.error(f"Memory delete failed: {exc}")
+        logger.error(f"Memory delete proposal failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
 
 

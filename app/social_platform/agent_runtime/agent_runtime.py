@@ -66,7 +66,26 @@ class AgentRuntime:
         self._scheduler = SchedulerService()
         self._setup_default_scheduled_tasks()
 
+        self._register_executors()
         logger.info("AgentRuntime initialized (max_iterations=%d)", self._config["max_iterations"])
+
+    def _register_executors(self):
+        def execute_store_memory(manifest: dict) -> dict:
+            payload = manifest.get("payload", {})
+            category = payload.get("category", "operational")
+            key = payload.get("key", "")
+            value = payload.get("value", "")
+            result = self._memory_service.store(category=category, key=key, value=value)
+            return {"status": "stored", "memory": result}
+
+        def execute_delete_memory(manifest: dict) -> dict:
+            payload = manifest.get("payload", {})
+            memory_id = payload.get("memory_id", "")
+            deleted = self._memory_service.delete(memory_id)
+            return {"status": "deleted" if deleted else "not_found", "memory_id": memory_id}
+
+        self._execution_engine.register_executor("store_memory", execute_store_memory)
+        self._execution_engine.register_executor("delete_memory", execute_delete_memory)
 
     def _setup_default_scheduled_tasks(self):
         self._scheduler.register_task(
@@ -180,6 +199,8 @@ class AgentRuntime:
             },
         )
 
+        confidence = self._compute_confidence(context)
+
         return {
             "status": "error" if context.error else "completed",
             "user_input": user_input,
@@ -187,9 +208,28 @@ class AgentRuntime:
             "tool_calls": context.tool_calls,
             "results": context.results,
             "steps_executed": context.iteration,
+            "confidence": confidence,
             "error": context.error,
             "system_prompt": self._system_prompt[:100],
         }
+
+    @staticmethod
+    def _compute_confidence(context: RuntimeContext) -> float:
+        base = float(load_agent_config().get("default_confidence", 0.75))
+        error_count = sum(1 for r in context.results if r.get("status") == "error")
+        success_count = sum(1 for r in context.results if r.get("status") == "success")
+        proposal_count = sum(1 for r in context.results if r.get("status") == "proposal_created")
+
+        if context.error:
+            base -= 0.3
+        if error_count > 0:
+            base -= 0.1 * error_count
+        if success_count > 0:
+            base += 0.05 * min(success_count, 3)
+        if proposal_count > 0:
+            base -= 0.05 * proposal_count
+
+        return round(max(0.0, min(1.0, base)), 2)
 
     @property
     def tool_registry(self) -> ToolRegistry:

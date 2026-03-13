@@ -26,6 +26,7 @@ export interface AgentRunResult {
   tool_calls: AgentToolCall[];
   results: AgentToolResult[];
   steps_executed: number;
+  confidence: number;
   error: string | null;
   system_prompt?: string;
 }

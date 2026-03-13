@@ -200,6 +200,16 @@ export function AgentTaskModal() {
                     {result.steps_executed} step{result.steps_executed !== 1 ? "s" : ""} executed
                   </p>
                 </div>
+                <div className="text-right" data-testid="agent-confidence">
+                  <span className={cn(
+                    "text-sm font-mono font-semibold",
+                    result.confidence >= 0.7 ? "text-signal-green" :
+                    result.confidence >= 0.4 ? "text-signal-amber" : "text-signal-red"
+                  )}>
+                    {(result.confidence * 100).toFixed(0)}%
+                  </span>
+                  <p className="text-[9px] text-muted-foreground">confidence</p>
+                </div>
               </div>
 
               {result.plan.length > 0 && (

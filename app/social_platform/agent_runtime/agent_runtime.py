@@ -67,6 +67,10 @@ class AgentRuntime:
         self._setup_default_scheduled_tasks()
 
         self._register_executors()
+
+        if self._config.get("scheduler_enabled"):
+            self._scheduler.start()
+
         logger.info("AgentRuntime initialized (max_iterations=%d)", self._config["max_iterations"])
 
     def _register_executors(self):
@@ -84,23 +88,43 @@ class AgentRuntime:
             deleted = self._memory_service.delete(memory_id)
             return {"status": "deleted" if deleted else "not_found", "memory_id": memory_id}
 
+        def _make_tool_executor(tool_name: str):
+            def executor(manifest: dict) -> dict:
+                payload = manifest.get("payload", {})
+                args = payload.get("arguments", {})
+                tool = self._registry.get(tool_name)
+                if not tool:
+                    return {"status": "error", "error": f"Tool '{tool_name}' not found"}
+                return tool.execute(**args)
+            return executor
+
         self._execution_engine.register_executor("store_memory", execute_store_memory)
         self._execution_engine.register_executor("delete_memory", execute_delete_memory)
 
+        for tool_spec in self._registry.list_tools():
+            action_name = f"tool_{tool_spec['name']}"
+            self._execution_engine.register_executor(
+                action_name, _make_tool_executor(tool_spec["name"])
+            )
+
     def _setup_default_scheduled_tasks(self):
+        scheduled_tasks = self._config.get("scheduled_tasks", {})
+        worker_health_interval = scheduled_tasks.get("monitor_worker_health_interval", 300)
+        governance_report_interval = scheduled_tasks.get("generate_governance_report_interval", 86400)
+
         self._scheduler.register_task(
             task_id="monitor_worker_health",
             name="Monitor Worker Health",
             handler=self._check_worker_health,
-            interval_seconds=300,
-            description="Check worker heartbeats and active leases every 5 minutes",
+            interval_seconds=worker_health_interval,
+            description=f"Check worker heartbeats and active leases every {worker_health_interval}s",
         )
         self._scheduler.register_task(
             task_id="generate_governance_report",
             name="Generate Governance Report",
             handler=self._generate_governance_summary,
-            interval_seconds=86400,
-            description="Generate daily governance report summary",
+            interval_seconds=governance_report_interval,
+            description=f"Generate governance report summary every {governance_report_interval}s",
         )
 
     def _check_worker_health(self) -> Dict[str, Any]:

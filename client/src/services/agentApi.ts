@@ -89,18 +89,24 @@ export async function getAgentMemory(
   return agentFetch(`/admin/agent/memory?${params}`);
 }
 
+export interface GovernanceProposalResponse {
+  status: string;
+  proposal_id: string;
+  message: string;
+}
+
 export async function storeAgentMemory(
   category: string,
   key: string,
   value: string
-): Promise<AgentMemoryEntry> {
-  return agentFetch<AgentMemoryEntry>("/admin/agent/memory", {
+): Promise<GovernanceProposalResponse> {
+  return agentFetch<GovernanceProposalResponse>("/admin/agent/memory", {
     method: "POST",
     body: JSON.stringify({ category, key, value }),
   });
 }
 
-export async function deleteAgentMemory(id: string): Promise<{ status: string }> {
+export async function deleteAgentMemory(id: string): Promise<GovernanceProposalResponse> {
   return agentFetch(`/admin/agent/memory/${id}`, { method: "DELETE" });
 }
 

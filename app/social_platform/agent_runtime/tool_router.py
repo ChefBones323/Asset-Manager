@@ -9,6 +9,7 @@ from app.social_platform.platform.execution_engine import ExecutionEngine
 logger = logging.getLogger("agent_runtime.tool_router")
 
 AGENT_ACTOR_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+AUTO_APPROVER_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
 
 
 class ToolRouter:
@@ -30,24 +31,26 @@ class ToolRouter:
         permission = self._policy_guard.check_permission(tool_name)
         level = self._policy_guard.get_approval_level(tool_name)
 
+        proposal = self._submit_proposal(tool_name, args, permission)
+        if proposal.get("status") == "error":
+            return proposal
+
+        proposal_id = proposal["proposal_id"]
+
         if level == ApprovalLevel.AUTO:
-            return self._execute_directly(tool_name, args)
+            return self._auto_approve_and_execute(tool_name, proposal_id, permission)
         else:
-            return self._route_through_pipeline(tool_name, args, permission)
+            return {
+                "status": "proposal_created",
+                "tool": tool_name,
+                "proposal_id": proposal_id,
+                "approval_level": permission["approval_level"],
+                "requires_human_approval": True,
+                "message": f"Tool '{tool_name}' requires {permission['approval_level']} approval. "
+                           f"Proposal {proposal_id} submitted for review.",
+            }
 
-    def _execute_directly(self, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-        tool = self._registry.get(tool_name)
-        if not tool:
-            return {"status": "error", "error": f"Tool not found: {tool_name}"}
-        try:
-            result = tool.execute(**args)
-            logger.info(f"Tool '{tool_name}' executed directly (auto-approved)")
-            return {"status": "success", "tool": tool_name, "result": result, "approval": "auto"}
-        except Exception as exc:
-            logger.error(f"Tool '{tool_name}' failed: {exc}")
-            return {"status": "error", "tool": tool_name, "error": str(exc)}
-
-    def _route_through_pipeline(
+    def _submit_proposal(
         self, tool_name: str, args: Dict[str, Any], permission: Dict
     ) -> Dict[str, Any]:
         try:
@@ -63,21 +66,39 @@ class ToolRouter:
                 },
                 description=f"Agent requests execution of tool '{tool_name}' with args: {list(args.keys())}",
             )
-
             logger.info(
                 f"Proposal {proposal['proposal_id']} created for tool '{tool_name}' "
                 f"(approval_level={permission['approval_level']})"
             )
-
-            return {
-                "status": "proposal_created",
-                "tool": tool_name,
-                "proposal_id": proposal["proposal_id"],
-                "approval_level": permission["approval_level"],
-                "requires_human_approval": True,
-                "message": f"Tool '{tool_name}' requires {permission['approval_level']} approval. "
-                           f"Proposal {proposal['proposal_id']} submitted for review.",
-            }
+            return proposal
         except Exception as exc:
             logger.error(f"Failed to create proposal for tool '{tool_name}': {exc}")
+            return {"status": "error", "tool": tool_name, "error": str(exc)}
+
+    def _auto_approve_and_execute(
+        self, tool_name: str, proposal_id: str, permission: Dict
+    ) -> Dict[str, Any]:
+        try:
+            self._execution_engine.approve(
+                proposal_id=proposal_id,
+                approver_id=AUTO_APPROVER_ID,
+                reason=f"Auto-approved: tool '{tool_name}' has approval_level=auto",
+            )
+
+            execution_result = self._execution_engine.execute(
+                proposal_id=proposal_id,
+                worker_id=f"agent_worker_{AGENT_ACTOR_ID.hex[:8]}",
+            )
+
+            logger.info(f"Tool '{tool_name}' auto-approved and executed via governance pipeline")
+            return {
+                "status": "success",
+                "tool": tool_name,
+                "result": execution_result.get("result", {}),
+                "approval": "auto",
+                "proposal_id": proposal_id,
+                "execution_id": execution_result.get("execution_id"),
+            }
+        except Exception as exc:
+            logger.error(f"Auto-approved execution of '{tool_name}' failed: {exc}")
             return {"status": "error", "tool": tool_name, "error": str(exc)}

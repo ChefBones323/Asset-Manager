@@ -3,3 +3,7 @@ memory_enabled: true
 scheduler_enabled: true
 default_confidence: 0.75
 log_level: INFO
+
+scheduled_tasks:
+  monitor_worker_health_interval: 300
+  generate_governance_report_interval: 86400

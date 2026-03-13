@@ -107,8 +107,8 @@ export function AgentTaskModal() {
     try {
       const res = await runAgentTask(task.trim());
       setResult(res);
-    } catch (err: any) {
-      setError(err.message || "Failed to run agent task");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to run agent task");
     } finally {
       setRunning(false);
     }

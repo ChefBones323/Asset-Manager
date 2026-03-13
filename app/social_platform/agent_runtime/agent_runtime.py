@@ -20,7 +20,7 @@ TASK_PATTERNS = {
     "analyze_system": {
         "plan": ["Gather system metrics", "Query recent events", "Analyze patterns", "Report findings"],
         "tools": [
-            {"tool": "filesystem_read", "args": {"path": "/health"}, "description": "Check system health"},
+            {"tool": "filesystem_read", "args": {"path": "data/worker_status.json"}, "description": "Check system health"},
         ],
     },
     "diagnose_feed": {
@@ -32,7 +32,7 @@ TASK_PATTERNS = {
     "trace_event": {
         "plan": ["Identify target event", "Trace causal chain", "Map related events", "Build event graph"],
         "tools": [
-            {"tool": "filesystem_read", "args": {"path": "/events"}, "description": "Read event data"},
+            {"tool": "filesystem_read", "args": {"path": "data/events.json"}, "description": "Read event data"},
         ],
     },
     "default": {
@@ -140,14 +140,34 @@ class AgentRuntime:
             context.mark_complete()
 
         if self._config.get("memory_enabled"):
+            memory_key = f"task_{uuid.uuid4().hex[:8]}"
+            memory_value = f"Task: {user_input[:100]} | Steps: {context.iteration} | Status: {'error' if context.error else 'complete'}"
             try:
-                self._memory_service.store(
-                    category="operational",
-                    key=f"task_{uuid.uuid4().hex[:8]}",
-                    value=f"Task: {user_input[:100]} | Steps: {context.iteration} | Status: {'error' if context.error else 'complete'}",
+                proposal = self._execution_engine.submit_proposal(
+                    actor_id=AGENT_ACTOR_ID,
+                    domain="agent_runtime",
+                    action="store_memory",
+                    payload={
+                        "category": "operational",
+                        "key": memory_key,
+                        "value": memory_value,
+                    },
+                    description=f"Agent stores operational memory for task: {user_input[:60]}",
                 )
+                context.tool_calls.append({
+                    "step": context.iteration + 1,
+                    "tool": "memory_store",
+                    "args": {"category": "operational", "key": memory_key},
+                    "description": "Store task result in agent memory",
+                })
+                context.results.append({
+                    "status": "proposal_created",
+                    "proposal_id": proposal["proposal_id"],
+                    "approval_level": "confirmation",
+                    "message": "Memory write routed through governance pipeline.",
+                })
             except Exception as exc:
-                logger.warning(f"Failed to store memory: {exc}")
+                logger.warning(f"Failed to create memory proposal: {exc}")
 
         self._event_store.append_event(
             domain="agent_runtime",

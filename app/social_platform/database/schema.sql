@@ -43,3 +43,15 @@ CREATE OR REPLACE RULE prevent_update_audit_logs AS
 
 CREATE OR REPLACE RULE prevent_delete_audit_logs AS
     ON DELETE TO audit_logs DO INSTEAD NOTHING;
+
+CREATE TABLE IF NOT EXISTS agent_memory (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category VARCHAR(50) NOT NULL,
+    key VARCHAR(255) NOT NULL,
+    value TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_memory_category ON agent_memory (category);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_key ON agent_memory (key);

@@ -1,0 +1,13 @@
+name: Publish Governance Report
+description: Generate and publish a summary report of recent governance proposals and votes
+version: "1.0"
+steps:
+  - tool: filesystem_read
+    args:
+      path: "data/governance_proposals.json"
+    description: Read proposal data for report
+  - tool: filesystem_write
+    args:
+      path: "reports/governance_report.md"
+      content: ""
+    description: Write governance report (requires approval)

@@ -1,0 +1,12 @@
+name: Monitor Worker Health
+description: Check worker heartbeats, active leases, and detect stale workers
+version: "1.0"
+steps:
+  - tool: filesystem_read
+    args:
+      path: "data/worker_status.json"
+    description: Read current worker status data
+  - tool: web_search
+    args:
+      query: "worker heartbeat health monitoring"
+    description: Research worker health patterns

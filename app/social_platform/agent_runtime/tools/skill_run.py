@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 from app.social_platform.agent_runtime.tool_registry import ToolSpec
 
-SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent_runtime", "skills")
+SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills")
 
 
 def execute(skill_name: str, **kwargs) -> Dict[str, Any]:

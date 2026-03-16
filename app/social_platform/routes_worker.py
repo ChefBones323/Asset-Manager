@@ -1,3 +1,4 @@
+import uuid
 import logging
 from typing import Optional, List
 
@@ -6,8 +7,6 @@ from pydantic import BaseModel, Field
 
 from app.social_platform.workers.worker_registry import WorkerRegistry
 from app.social_platform.queue.job_queue_service import JobQueueService
-from app.social_platform.infrastructure.event_store import EventStore
-from app.social_platform.platform.execution_engine import ExecutionEngine
 
 logger = logging.getLogger("routes_worker")
 
@@ -15,8 +14,6 @@ router = APIRouter(prefix="/admin", tags=["workers"])
 
 _registry = WorkerRegistry()
 _queue_service = JobQueueService()
-_event_store = EventStore()
-_execution_engine = ExecutionEngine(_event_store)
 
 
 class RegisterWorkerRequest(BaseModel):
@@ -29,7 +26,9 @@ class HeartbeatRequest(BaseModel):
 
 
 class EnqueueRequest(BaseModel):
-    proposal_id: str = Field(..., min_length=1)
+    action: str = Field(..., min_length=1)
+    payload: dict = Field(default_factory=dict)
+    proposal_id: str = Field(default="")
 
 
 @router.get("/workers")
@@ -90,12 +89,15 @@ async def worker_heartbeat(request: HeartbeatRequest):
 
 
 @router.post("/queue/enqueue")
-async def enqueue_proposal(request: EnqueueRequest):
+async def enqueue_job(request: EnqueueRequest):
     try:
-        result = _execution_engine.enqueue(request.proposal_id)
-        return result
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        job = _queue_service.enqueue_job({
+            "proposal_id": request.proposal_id or str(uuid.uuid4()),
+            "action": request.action,
+            "tool_name": request.action,
+            "payload": request.payload,
+        })
+        return {"job_id": job["id"], "status": "enqueued", "action": request.action}
     except Exception as exc:
         logger.error(f"Enqueue failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))

@@ -77,7 +77,11 @@ class WorkerExecutor:
         try:
             result = {}
             if self._execution_engine:
-                execution_result = self._execution_engine.execute(
+                action = job.get("tool_name", "unknown")
+                payload = job.get("payload", {})
+                execution_result = self._execution_engine.execute_from_payload(
+                    action=action,
+                    payload=payload,
                     proposal_id=proposal_id,
                     worker_id=f"queue_worker_{self._worker_id[:8]}",
                 )

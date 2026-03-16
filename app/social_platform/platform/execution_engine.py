@@ -185,3 +185,45 @@ class ExecutionEngine:
             )
 
         return {"manifest": manifest, "result": result, "execution_id": str(execution_id)}
+
+    def execute_from_payload(self, action: str, payload: dict, proposal_id: str = "", worker_id: str = "") -> dict:
+        executor = self._executors.get(action)
+        if not executor:
+            raise ValueError(f"No executor registered for action '{action}'")
+
+        execution_id = uuid.uuid4()
+        manifest = {
+            "manifest_id": str(uuid.uuid4()),
+            "action": action,
+            "payload": payload,
+            "proposal_id": proposal_id,
+        }
+
+        self._event_store.append_event(
+            domain="platform",
+            event_type="execution_started",
+            actor_id=uuid.UUID("00000000-0000-0000-0000-000000000003"),
+            payload={"proposal_id": proposal_id, "manifest_id": manifest["manifest_id"], "source": "worker_queue"},
+            execution_id=execution_id,
+        )
+
+        try:
+            result = executor(manifest)
+
+            self._event_store.append_event(
+                domain="platform",
+                event_type="execution_completed",
+                actor_id=uuid.UUID("00000000-0000-0000-0000-000000000003"),
+                payload={"proposal_id": proposal_id, "result": result},
+                execution_id=execution_id,
+            )
+            return {"result": result, "execution_id": str(execution_id)}
+        except Exception as exc:
+            self._event_store.append_event(
+                domain="platform",
+                event_type="execution_failed",
+                actor_id=uuid.UUID("00000000-0000-0000-0000-000000000003"),
+                payload={"proposal_id": proposal_id, "error": str(exc)},
+                execution_id=execution_id,
+            )
+            raise

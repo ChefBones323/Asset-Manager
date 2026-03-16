@@ -1,0 +1,346 @@
+Install a **Worker Orchestration Layer** into the existing OpenClaw Operator Runtime.
+
+The system already has:
+- AgentRuntime
+- ToolRegistry
+- ToolRouter
+- PolicyGuard
+- SchedulerService
+- ExecutionEngine
+- EventStore
+- Civic Mission Control dashboard
+
+The governance pipeline already exists:
+
+proposal → approval → execution_engine → worker → eventstore
+
+Your job is to **implement the worker layer and job queue** so that all approved proposals are executed asynchronously by worker processes.
+
+CRITICAL RULES
+
+1. Do NOT bypass the governance pipeline.
+2. Workers must claim jobs from a queue instead of executing tasks directly.
+3. All execution events must be emitted to the EventStore.
+4. The dashboard must be able to query worker and queue status.
+
+---
+
+SYSTEM ARCHITECTURE
+
+AgentRuntime  
+→ Governance proposal  
+→ Approval  
+→ ExecutionEngine  
+→ JobQueue  
+→ Worker  
+→ EventStore  
+→ Civic Mission Control dashboard
+
+---
+
+FILES TO CREATE
+
+Create these backend modules:
+
+app/social_platform/workers/
+    worker_registry.py
+    worker_executor.py
+    run_worker.py
+    heartbeat_monitor.py
+
+app/social_platform/queue/
+    job_queue_service.py
+
+app/social_platform/models/
+    worker_models.py
+
+app/social_platform/routes_worker.py
+
+app/social_platform/metrics/
+    worker_metrics.py
+
+---
+
+DATABASE MODELS
+
+Add SQLAlchemy models and schema entries.
+
+WorkerNode
+
+id (uuid)  
+hostname  
+status (idle | busy | unhealthy)  
+capabilities (json)  
+last_heartbeat  
+current_job_id  
+created_at  
+
+JobQueue
+
+id  
+proposal_id  
+tool_name  
+payload (json)  
+status (queued | claimed | running | completed | failed | dlq)  
+retry_count  
+max_retries  
+claimed_by_worker  
+created_at  
+updated_at  
+
+DeadLetterQueue
+
+id  
+job_id  
+error_message  
+failed_at  
+
+Update schema.sql bootstrap.
+
+---
+
+JOB QUEUE SERVICE
+
+Implement:
+
+enqueue_job(proposal)
+
+claim_job(worker_id)
+
+update_job_status(job_id, status)
+
+fail_job(job_id, error)
+
+retry_job(job_id)
+
+get_queue_depth()
+
+Queue lifecycle:
+
+queued  
+→ claimed  
+→ running  
+→ completed
+
+or
+
+queued  
+→ claimed  
+→ running  
+→ failed  
+→ retry
+
+or
+
+queued  
+→ claimed  
+→ running  
+→ dlq
+
+---
+
+WORKER REGISTRY
+
+Track worker nodes and health.
+
+register_worker(hostname, capabilities)
+
+heartbeat(worker_id)
+
+update_status(worker_id, status)
+
+assign_job(worker_id, job_id)
+
+release_job(worker_id)
+
+mark_worker_unhealthy(worker_id)
+
+Workers should timeout if heartbeat > 30 seconds old.
+
+---
+
+WORKER EXECUTOR
+
+Create a loop that runs continuously.
+
+Worker startup:
+
+register_worker()
+
+Worker loop:
+
+heartbeat()
+
+job = claim_job()
+
+if job exists:
+
+update worker status busy
+
+execute tool via ToolRouter
+
+update job status
+
+emit event to EventStore
+
+set worker idle
+
+sleep(poll_interval)
+
+---
+
+WORKER ENTRYPOINT
+
+Create executable script:
+
+app/social_platform/workers/run_worker.py
+
+Behavior:
+
+read WORKER_TOKEN from environment
+
+register worker
+
+start executor loop
+
+Example usage:
+
+python run_worker.py --capabilities filesystem,web,skills
+
+---
+
+EXECUTION ENGINE INTEGRATION
+
+Modify ExecutionEngine so that approved proposals enqueue jobs instead of executing tools immediately.
+
+Replace direct execution with:
+
+enqueue_job({
+proposal_id
+tool_name
+payload
+})
+
+Workers will process these jobs.
+
+---
+
+EVENT EMISSION
+
+Emit events during execution:
+
+worker_registered
+
+worker_heartbeat
+
+job_claimed
+
+job_started
+
+job_completed
+
+job_failed
+
+job_dlq
+
+These must appear in the Event Pulse panel.
+
+---
+
+API ROUTES
+
+Create worker API endpoints.
+
+GET /admin/workers
+
+GET /admin/workers/{id}
+
+GET /admin/queue
+
+GET /admin/queue/depth
+
+GET /admin/queue/jobs
+
+POST /admin/workers/register
+
+POST /admin/workers/heartbeat
+
+These routes power the Civic Mission Control infrastructure panel.
+
+---
+
+METRICS SERVICE
+
+Create metrics endpoint.
+
+GET /metrics
+
+Return:
+
+active_workers
+
+busy_workers
+
+queue_depth
+
+jobs_processed_total
+
+jobs_failed_total
+
+retry_rate
+
+worker_heartbeat_age
+
+---
+
+DASHBOARD INTEGRATION
+
+Update frontend API:
+
+client/src/services/workerApi.ts
+
+Add:
+
+fetchWorkers()
+
+fetchQueueDepth()
+
+fetchQueueJobs()
+
+Update Civic Mission Control panels:
+
+Workers
+
+Worker Registry
+
+Queue Depth
+
+DLQ Count
+
+Event Pulse
+
+---
+
+SUCCESS CRITERIA
+
+The dashboard should change from:
+
+Workers: 0  
+Queue: 0  
+Event rate: 0  
+
+to something like:
+
+Workers: 3  
+Queue: 14  
+Event rate: 4.2/s  
+
+Worker registry populated  
+Queue draining  
+Events streaming
+
+All job execution must occur through workers.
+
+---
+
+Implement the system in parallel batches where possible and ensure it integrates with the existing governance pipeline.

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.social_platform.workers.worker_registry import WorkerRegistry
 from app.social_platform.queue.job_queue_service import JobQueueService
 from app.social_platform.infrastructure.event_store import EventStore
+from app.social_platform.platform.execution_engine import ExecutionEngine
 
 logger = logging.getLogger("routes_worker")
 
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/admin", tags=["workers"])
 _registry = WorkerRegistry()
 _queue_service = JobQueueService()
 _event_store = EventStore()
+_execution_engine = ExecutionEngine(_event_store)
 
 
 class RegisterWorkerRequest(BaseModel):
@@ -88,39 +90,11 @@ async def worker_heartbeat(request: HeartbeatRequest):
     return result
 
 
-def _validate_proposal_approved(proposal_id: str) -> dict:
-    events = _event_store.get_events_by_domain("platform", limit=500)
-    created = None
-    approved = False
-    for e in events:
-        p = e.payload or {}
-        if p.get("proposal_id") == proposal_id:
-            if e.event_type == "proposal_created":
-                created = p
-            elif e.event_type == "proposal_approved":
-                approved = True
-    if not created:
-        raise ValueError(f"Proposal {proposal_id} not found in event store")
-    if not approved:
-        raise ValueError(f"Proposal {proposal_id} is not approved — cannot enqueue")
-    return created
-
-
 @router.post("/queue/enqueue")
 async def enqueue_job(request: EnqueueRequest):
     try:
-        proposal_data = _validate_proposal_approved(request.proposal_id)
-
-        action = proposal_data.get("action", "unknown")
-        tool_payload = proposal_data.get("tool_payload", {})
-
-        job = _queue_service.enqueue_job({
-            "proposal_id": request.proposal_id,
-            "action": action,
-            "tool_name": action,
-            "payload": tool_payload,
-        })
-        return {"job_id": job["id"], "status": "enqueued", "action": action}
+        result = _execution_engine.enqueue(request.proposal_id)
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except Exception as exc:

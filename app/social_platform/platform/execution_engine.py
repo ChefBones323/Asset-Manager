@@ -87,23 +87,56 @@ class ExecutionEngine:
             )
         return result
 
+    def _reconstruct_proposal_from_events(self, proposal_id: str) -> dict:
+        events = self._event_store.get_events_by_domain("platform", limit=1000)
+        proposal_data = None
+        approved = False
+        actor_id_str = None
+        for e in events:
+            p = e.payload or {}
+            if p.get("proposal_id") == proposal_id:
+                if e.event_type == "proposal_created":
+                    proposal_data = p
+                    actor_id_str = str(e.actor_id)
+                elif e.event_type == "proposal_approved":
+                    approved = True
+        if not proposal_data:
+            return None
+        return {
+            "proposal_id": proposal_id,
+            "actor_id": actor_id_str,
+            "action": proposal_data.get("action", "unknown"),
+            "payload": proposal_data.get("tool_payload", {}),
+            "approved": approved,
+        }
+
     def enqueue(self, proposal_id: str) -> dict:
         proposal = self._proposal_service.get_proposal(proposal_id)
-        if not proposal:
-            raise ValueError(f"Proposal {proposal_id} not found")
-        if not self._approval_service.is_approved(proposal_id):
-            raise ValueError(f"Proposal {proposal_id} is not approved")
+        if proposal:
+            if not self._approval_service.is_approved(proposal_id):
+                raise ValueError(f"Proposal {proposal_id} is not approved")
+            action = proposal.get("action", "unknown")
+            payload = proposal.get("payload", {})
+            actor_id = uuid.UUID(proposal["actor_id"])
+        else:
+            reconstructed = self._reconstruct_proposal_from_events(proposal_id)
+            if not reconstructed:
+                raise ValueError(f"Proposal {proposal_id} not found")
+            if not reconstructed["approved"]:
+                raise ValueError(f"Proposal {proposal_id} is not approved")
+            action = reconstructed["action"]
+            payload = reconstructed["payload"]
+            actor_id = uuid.UUID(reconstructed["actor_id"])
 
         from app.social_platform.queue.job_queue_service import JobQueueService
         queue_service = JobQueueService()
         job = queue_service.enqueue_job({
             "proposal_id": proposal_id,
-            "action": proposal.get("action", "unknown"),
-            "tool_name": proposal.get("action", "unknown"),
-            "payload": proposal.get("payload", {}),
+            "action": action,
+            "tool_name": action,
+            "payload": payload,
         })
 
-        actor_id = uuid.UUID(proposal["actor_id"])
         self._event_store.append_event(
             domain="platform",
             event_type="job_enqueued",

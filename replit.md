@@ -99,6 +99,19 @@ Three intelligence capabilities integrated into Mission Control:
 - **UI Integration**: `uiState.ts` has `agentModalOpen`/`agentModalTask`; `CommandPalette` has 4 `operator` category commands; `AgentTaskModal` rendered at App level
 - **Governance Flow**: All write/destructive tools route through `ExecutionEngine.submit_proposal()` → governance pipeline → human approval → execution
 
+### Worker Orchestration Layer
+- **DB Models**: `models/worker_models.py` — `WorkerNode`, `JobQueueEntry`, `DeadLetterEntry` (Postgres-backed)
+- **Queue Service**: `queue/job_queue_service.py` — `enqueue_job()`, `claim_job()` (with `SELECT FOR UPDATE SKIP LOCKED`), `fail_job()` (auto-DLQ after max_retries), `get_queue_depth()`, `get_stats()`
+- **Worker Registry**: `workers/worker_registry.py` — `register_worker()`, `heartbeat()`, `assign_job()`, `release_job()`, `sweep_unhealthy()` (30s timeout)
+- **Worker Executor**: `workers/worker_executor.py` — poll loop: heartbeat → claim → execute via ExecutionEngine → emit events → release
+- **Heartbeat Monitor**: `workers/heartbeat_monitor.py` — background sweep thread for stale workers
+- **Run Worker**: `workers/run_worker.py` — standalone entrypoint: reads WORKER_TOKEN, registers, starts executor loop
+- **ExecutionEngine.enqueue()**: New async path that writes jobs to `JobQueueService` instead of executing synchronously; `execute()` retained for agent runtime fast-path
+- **Routes**: `routes_worker.py` — GET `/admin/workers`, `/admin/workers/{id}`, `/admin/queue`, `/admin/queue/depth`, `/admin/queue/jobs`, POST `/admin/workers/register`, `/admin/workers/heartbeat`
+- **Metrics**: `metrics/worker_metrics.py` — GET `/metrics` returns active_workers, busy_workers, queue_depth, jobs_processed_total, jobs_failed_total, retry_rate
+- **Frontend**: `services/workerApi.ts` (typed fetch), `InfrastructurePanel.tsx` updated to use new DB-backed endpoints
+- **Events**: worker_registered, worker_heartbeat, job_claimed, job_started, job_completed, job_failed, job_dlq emitted to EventStore
+
 ### Navigation & Commands
 - NavigationRail: Added "Time Machine" (Clock icon) and "AI Operator" (Brain icon) nav items
 - CommandPalette: Added `intelligence`, `export`, and `operator` command categories with commands for timeline, AI operator, replay, analysis, exports, and agent tasks

@@ -16,6 +16,8 @@ from app.social_platform.admin.worker_dashboard import router as worker_dashboar
 from app.social_platform.admin.event_metrics_api import router as event_metrics_router
 from app.social_platform.admin.feed_policies import router as feed_policies_router
 from app.social_platform.agent_runtime.routes_agent import router as agent_runtime_router
+from app.social_platform.routes_worker import router as worker_routes_router
+from app.social_platform.metrics.worker_metrics import router as worker_metrics_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,10 +66,12 @@ app.include_router(trust_router)
 app.include_router(governance_router)
 app.include_router(event_stream_router)
 app.include_router(feed_debugger_router)
-app.include_router(worker_dashboard_router)
 app.include_router(event_metrics_router)
 app.include_router(feed_policies_router)
 app.include_router(agent_runtime_router)
+app.include_router(worker_routes_router)
+app.include_router(worker_metrics_router)
+app.include_router(worker_dashboard_router)
 
 
 @app.get("/health")

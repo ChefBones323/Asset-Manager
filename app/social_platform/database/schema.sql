@@ -55,3 +55,40 @@ CREATE TABLE IF NOT EXISTS agent_memory (
 
 CREATE INDEX IF NOT EXISTS idx_agent_memory_category ON agent_memory (category);
 CREATE INDEX IF NOT EXISTS idx_agent_memory_key ON agent_memory (key);
+
+CREATE TABLE IF NOT EXISTS worker_nodes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    hostname VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'idle',
+    capabilities JSONB NOT NULL DEFAULT '[]',
+    last_heartbeat TIMESTAMPTZ,
+    current_job_id UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_worker_nodes_status ON worker_nodes (status);
+
+CREATE TABLE IF NOT EXISTS job_queue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id VARCHAR(255) NOT NULL,
+    tool_name VARCHAR(255) NOT NULL,
+    payload JSONB NOT NULL DEFAULT '{}',
+    status VARCHAR(20) NOT NULL DEFAULT 'queued',
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    claimed_by_worker UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_queue_status ON job_queue (status);
+CREATE INDEX IF NOT EXISTS idx_job_queue_proposal_id ON job_queue (proposal_id);
+
+CREATE TABLE IF NOT EXISTS dead_letter_queue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID NOT NULL,
+    error_message TEXT NOT NULL DEFAULT '',
+    failed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_dead_letter_queue_job_id ON dead_letter_queue (job_id);

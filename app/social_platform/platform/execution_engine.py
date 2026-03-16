@@ -87,6 +87,38 @@ class ExecutionEngine:
             )
         return result
 
+    def enqueue(self, proposal_id: str) -> dict:
+        proposal = self._proposal_service.get_proposal(proposal_id)
+        if not proposal:
+            raise ValueError(f"Proposal {proposal_id} not found")
+        if not self._approval_service.is_approved(proposal_id):
+            raise ValueError(f"Proposal {proposal_id} is not approved")
+
+        from app.social_platform.queue.job_queue_service import JobQueueService
+        queue_service = JobQueueService()
+        job = queue_service.enqueue_job({
+            "proposal_id": proposal_id,
+            "action": proposal.get("action", "unknown"),
+            "tool_name": proposal.get("action", "unknown"),
+            "payload": proposal.get("payload", {}),
+        })
+
+        actor_id = uuid.UUID(proposal["actor_id"])
+        self._event_store.append_event(
+            domain="platform",
+            event_type="job_enqueued",
+            actor_id=actor_id,
+            payload={"proposal_id": proposal_id, "job_id": job["id"]},
+        )
+        self._audit_logger.log_action(
+            actor_id=actor_id,
+            action="enqueue_proposal",
+            resource_type="proposal",
+            resource_id=proposal_id,
+            details={"job_id": job["id"]},
+        )
+        return {"proposal_id": proposal_id, "job_id": job["id"], "status": "enqueued"}
+
     def execute(self, proposal_id: str, worker_id: str) -> dict:
         proposal = self._proposal_service.get_proposal(proposal_id)
         if not proposal:

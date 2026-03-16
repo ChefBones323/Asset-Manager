@@ -6,7 +6,6 @@ from typing import Optional
 from app.social_platform.queue.job_queue_service import JobQueueService
 from app.social_platform.workers.worker_registry import WorkerRegistry
 from app.social_platform.infrastructure.event_store import EventStore
-from app.social_platform.agent_runtime.tool_router import ToolRouter
 
 logger = logging.getLogger("worker_executor")
 
@@ -20,7 +19,6 @@ class WorkerExecutor:
         queue_service: JobQueueService,
         registry: WorkerRegistry,
         event_store: EventStore,
-        tool_router: ToolRouter,
         execution_engine=None,
         poll_interval: float = 2.0,
         heartbeat_interval: float = 10.0,
@@ -29,7 +27,6 @@ class WorkerExecutor:
         self._queue = queue_service
         self._registry = registry
         self._event_store = event_store
-        self._tool_router = tool_router
         self._execution_engine = execution_engine
         self._poll_interval = poll_interval
         self._heartbeat_interval = heartbeat_interval
@@ -78,18 +75,20 @@ class WorkerExecutor:
         })
 
         try:
+            action = job.get("tool_name", tool_name)
             payload = job.get("payload", {})
-            raw_tool_name = payload.get("tool_name", tool_name)
-            if raw_tool_name.startswith("tool_"):
-                raw_tool_name = raw_tool_name[5:]
-            args = payload.get("arguments", {})
 
-            route_result = self._tool_router.route(raw_tool_name, args)
-            result = route_result.get("result", route_result)
-            logger.info(f"Job {job_id}: executed tool '{raw_tool_name}' via ToolRouter (status={route_result.get('status')})")
+            if not self._execution_engine:
+                raise RuntimeError("No execution engine available")
 
-            if route_result.get("status") == "error":
-                raise RuntimeError(route_result.get("error", f"ToolRouter error for {raw_tool_name}"))
+            execution_result = self._execution_engine.execute_from_payload(
+                action=action,
+                payload=payload,
+                proposal_id=proposal_id,
+                worker_id=f"queue_worker_{self._worker_id[:8]}",
+            )
+            result = execution_result.get("result", {})
+            logger.info(f"Job {job_id}: executed action '{action}' for pre-approved proposal {proposal_id}")
 
             self._queue.update_job_status(job_id, "completed")
             self._emit_event("job_completed", {

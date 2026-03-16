@@ -63,15 +63,11 @@ def main():
     monitor = HeartbeatMonitor(registry, event_store)
     monitor.start()
 
-    from app.social_platform.agent_runtime.tool_router import ToolRouter
-    tool_router = ToolRouter(runtime.tool_registry, runtime.policy_guard, runtime.execution_engine)
-
     executor = WorkerExecutor(
         worker_id=worker_id,
         queue_service=queue_service,
         registry=registry,
         event_store=event_store,
-        tool_router=tool_router,
         execution_engine=runtime.execution_engine,
         poll_interval=args.poll_interval,
         heartbeat_interval=args.heartbeat_interval,

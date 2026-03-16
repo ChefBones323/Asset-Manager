@@ -35,6 +35,7 @@ class EnqueueRequest(BaseModel):
 
 @router.get("/workers")
 async def list_workers():
+    _registry.sweep_unhealthy()
     workers = _registry.list_workers()
     queue_depth = _queue_service.get_queue_depth()
     dlq = _queue_service.list_dlq(limit=20)

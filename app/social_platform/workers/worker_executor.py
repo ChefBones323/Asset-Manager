@@ -6,6 +6,7 @@ from typing import Optional
 from app.social_platform.queue.job_queue_service import JobQueueService
 from app.social_platform.workers.worker_registry import WorkerRegistry
 from app.social_platform.infrastructure.event_store import EventStore
+from app.social_platform.agent_runtime.tool_registry import ToolRegistry
 
 logger = logging.getLogger("worker_executor")
 
@@ -19,6 +20,7 @@ class WorkerExecutor:
         queue_service: JobQueueService,
         registry: WorkerRegistry,
         event_store: EventStore,
+        tool_registry: ToolRegistry,
         execution_engine=None,
         poll_interval: float = 2.0,
         heartbeat_interval: float = 10.0,
@@ -27,6 +29,7 @@ class WorkerExecutor:
         self._queue = queue_service
         self._registry = registry
         self._event_store = event_store
+        self._tool_registry = tool_registry
         self._execution_engine = execution_engine
         self._poll_interval = poll_interval
         self._heartbeat_interval = heartbeat_interval
@@ -75,10 +78,18 @@ class WorkerExecutor:
         })
 
         try:
-            result = {}
-            if self._execution_engine:
+            payload = job.get("payload", {})
+            raw_tool_name = payload.get("tool_name", tool_name)
+            if raw_tool_name.startswith("tool_"):
+                raw_tool_name = raw_tool_name[5:]
+            args = payload.get("arguments", {})
+
+            tool = self._tool_registry.get(raw_tool_name)
+            if tool:
+                result = tool.execute(**args)
+                logger.info(f"Job {job_id}: executed tool '{raw_tool_name}' via ToolRegistry")
+            elif self._execution_engine:
                 action = job.get("tool_name", "unknown")
-                payload = job.get("payload", {})
                 execution_result = self._execution_engine.execute_from_payload(
                     action=action,
                     payload=payload,

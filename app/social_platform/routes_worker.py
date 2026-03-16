@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.social_platform.workers.worker_registry import WorkerRegistry
 from app.social_platform.queue.job_queue_service import JobQueueService
+from app.social_platform.infrastructure.event_store import EventStore
 
 logger = logging.getLogger("routes_worker")
 
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/admin", tags=["workers"])
 
 _registry = WorkerRegistry()
 _queue_service = JobQueueService()
+_event_store = EventStore()
 
 
 class RegisterWorkerRequest(BaseModel):
@@ -26,9 +28,7 @@ class HeartbeatRequest(BaseModel):
 
 
 class EnqueueRequest(BaseModel):
-    action: str = Field(..., min_length=1)
-    payload: dict = Field(default_factory=dict)
-    proposal_id: str = Field(default="")
+    proposal_id: str = Field(..., min_length=1)
 
 
 @router.get("/workers")
@@ -88,16 +88,41 @@ async def worker_heartbeat(request: HeartbeatRequest):
     return result
 
 
+def _validate_proposal_approved(proposal_id: str) -> dict:
+    events = _event_store.get_events_by_domain("platform", limit=500)
+    created = None
+    approved = False
+    for e in events:
+        p = e.payload or {}
+        if p.get("proposal_id") == proposal_id:
+            if e.event_type == "proposal_created":
+                created = p
+            elif e.event_type == "proposal_approved":
+                approved = True
+    if not created:
+        raise ValueError(f"Proposal {proposal_id} not found in event store")
+    if not approved:
+        raise ValueError(f"Proposal {proposal_id} is not approved — cannot enqueue")
+    return created
+
+
 @router.post("/queue/enqueue")
 async def enqueue_job(request: EnqueueRequest):
     try:
+        proposal_data = _validate_proposal_approved(request.proposal_id)
+
+        action = proposal_data.get("action", "unknown")
+        tool_payload = proposal_data.get("tool_payload", {})
+
         job = _queue_service.enqueue_job({
-            "proposal_id": request.proposal_id or str(uuid.uuid4()),
-            "action": request.action,
-            "tool_name": request.action,
-            "payload": request.payload,
+            "proposal_id": request.proposal_id,
+            "action": action,
+            "tool_name": action,
+            "payload": tool_payload,
         })
-        return {"job_id": job["id"], "status": "enqueued", "action": request.action}
+        return {"job_id": job["id"], "status": "enqueued", "action": action}
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except Exception as exc:
         logger.error(f"Enqueue failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))

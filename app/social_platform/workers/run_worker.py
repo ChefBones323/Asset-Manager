@@ -68,6 +68,7 @@ def main():
         queue_service=queue_service,
         registry=registry,
         event_store=event_store,
+        tool_registry=runtime.tool_registry,
         execution_engine=runtime.execution_engine,
         poll_interval=args.poll_interval,
         heartbeat_interval=args.heartbeat_interval,

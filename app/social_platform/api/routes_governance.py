@@ -43,6 +43,7 @@ class VoteRequest(BaseModel):
 class ExecuteApprovedRequest(BaseModel):
     actor_id: str
     proposal_id: str
+    async_enqueue: bool = False
 
 
 @router.post("/proposal")
@@ -120,6 +121,10 @@ def tally_votes(proposal_id: str):
 @router.post("/execute")
 def execute_approved(request: ExecuteApprovedRequest):
     try:
+        if request.async_enqueue:
+            enqueue_result = _execution_engine.enqueue(request.proposal_id)
+            return {"status": "enqueued", "result": enqueue_result}
+
         result = _governance_service.execute_approved(
             proposal_id=uuid.UUID(request.proposal_id),
             actor_id=uuid.UUID(request.actor_id),

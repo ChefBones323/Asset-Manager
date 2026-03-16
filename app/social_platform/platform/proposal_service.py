@@ -38,7 +38,7 @@ class ProposalService:
             domain="platform",
             event_type="proposal_created",
             actor_id=actor_id,
-            payload={"proposal_id": proposal_id, "domain": domain, "action": action, "description": description},
+            payload={"proposal_id": proposal_id, "domain": domain, "action": action, "description": description, "tool_payload": payload},
         )
         return proposal
 

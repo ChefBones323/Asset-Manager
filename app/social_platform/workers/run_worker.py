@@ -47,12 +47,9 @@ def main():
     from app.social_platform.workers.heartbeat_monitor import HeartbeatMonitor
     from app.social_platform.queue.job_queue_service import JobQueueService
     from app.social_platform.infrastructure.event_store import EventStore
-    from app.social_platform.platform.execution_engine import ExecutionEngine
+    from app.social_platform.agent_runtime.agent_runtime import AgentRuntime
 
     event_store = EventStore()
-    execution_engine = ExecutionEngine(event_store)
-
-    from app.social_platform.agent_runtime.agent_runtime import AgentRuntime
     runtime = AgentRuntime(event_store=event_store)
     runtime.scheduler.stop()
 
@@ -71,7 +68,7 @@ def main():
         queue_service=queue_service,
         registry=registry,
         event_store=event_store,
-        execution_engine=execution_engine,
+        execution_engine=runtime.execution_engine,
         poll_interval=args.poll_interval,
         heartbeat_interval=args.heartbeat_interval,
     )

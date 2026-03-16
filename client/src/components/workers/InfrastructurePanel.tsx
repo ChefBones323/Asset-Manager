@@ -99,8 +99,8 @@ export const InfrastructurePanel = memo(function InfrastructurePanel({ className
         />
         <Metric
           label="DLQ"
-          value={dlq.length}
-          signal={dlq.length > 0 ? "red" : "default"}
+          value={metricsData?.dlq_count ?? dlq.length}
+          signal={(metricsData?.dlq_count ?? dlq.length) > 0 ? "red" : "default"}
           data-testid="metric-dlq"
         />
         <Metric

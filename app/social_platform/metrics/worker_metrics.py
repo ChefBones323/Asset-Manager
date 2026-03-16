@@ -14,7 +14,7 @@ _queue_service = JobQueueService()
 
 @router.get("/metrics")
 async def get_metrics():
-    worker_counts = _registry.get_counts()
+    _registry.sweep_unhealthy(); worker_counts = _registry.get_counts()
     queue_stats = _queue_service.get_stats()
     queue_depth = _queue_service.get_queue_depth()
 

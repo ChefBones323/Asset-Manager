@@ -116,6 +116,35 @@ def _get_worker_data() -> dict:
                 w["status"] = "active"
             else:
                 w["status"] = "idle"
+        # Update worker status from registry and queue depth from job queue
+        queue_depth = {}
+        queue_stats = {}
+        try:
+            from app.social_platform.workers.worker_registry import (
+                WorkerRegistry,
+            )
+            registry = WorkerRegistry()
+            registry.sweep_unhealthy()
+            for r in registry.list_workers():
+                wid = str(r.get("id") or r.get("worker_id"))
+                w = workers.setdefault(wid, {"worker_id": wid, "jobs_processed": 0, "status": "idle"})
+                w["status"] = r.get("status", w.get("status", "idle"))
+                if r.get("last_heartbeat"):
+                    w["last_heartbeat"] = r.get("last_heartbeat")
+                    w["last_seen"] = r.get("last_heartbeat")
+        except Exception:
+            pass
+
+        try:
+            from app.social_platform.queue.job_queue_service import (
+                JobQueueService,
+            )
+            queue_service = JobQueueService()
+            queue_depth = queue_service.get_queue_depth()
+            queue_stats = queue_service.get_stats()
+            dead_letter_jobs[:] = queue_service.list_dlq(limit=50)
+        except Exception:
+            pass
 
         return {
             "workers": list(workers.values()),
@@ -126,6 +155,8 @@ def _get_worker_data() -> dict:
             "dead_letter_queue": dead_letter_jobs,
             "total_leases": len(leases),
             "computed_at": now.isoformat(),
+            "queue_depth": queue_depth,
+            "queue_stats": queue_stats,
         }
     finally:
         session.close()

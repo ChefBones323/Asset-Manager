@@ -131,7 +131,7 @@ def _get_worker_data() -> dict:
         session.close()
 
 
-@router.get("/workers")
+@router.get("/workers/legacy")
 async def worker_health():
     return _get_worker_data()
 
@@ -207,7 +207,7 @@ tr:last-child td{border-bottom:none}
 <script>
 async function refresh() {
   try {
-    const res = await fetch('/admin/workers');
+    const res = await fetch('/admin/workers/legacy');
     const d = await res.json();
     renderSummary(d);
     renderWorkers(d.workers || []);

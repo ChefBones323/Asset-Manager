@@ -220,6 +220,14 @@ class ExecutionEngine:
         return {"manifest": manifest, "result": result, "execution_id": str(execution_id)}
 
     def execute_from_payload(self, action: str, payload: dict, proposal_id: str = "", worker_id: str = "") -> dict:
+        """Execute a pre-approved job directly using registered executors.
+
+        This is the correct execution path for worker-drained queue jobs:
+        proposals are approved once (via ToolRouter governance pipeline or
+        manual governance API), then enqueued. Workers call this method to
+        invoke the same registered tool executors that ToolRouter delegates
+        to, without re-creating proposals or re-running approval logic.
+        """
         executor = self._executors.get(action)
         if not executor:
             raise ValueError(f"No executor registered for action '{action}'")

@@ -1,0 +1,173 @@
+You are working on a distributed worker system with:
+
+* A backend API (Replit app)
+* A Python worker (`worker.py`) polling `/api/worker/next`
+* A queue system (currently returning empty/invalid jobs)
+* A Civic UI that will eventually enqueue jobs
+
+## Problem
+
+The worker is running correctly but every job is labeled `"unknown"`, which means:
+
+* The API is not returning structured job data
+* OR the worker is not parsing it correctly
+
+## Goal
+
+Implement a minimal, working job pipeline so that:
+
+1. The backend returns a valid job object
+2. The worker can parse and execute at least one job type
+3. Jobs flow end-to-end from enqueue → worker → completion
+
+---
+
+## Step 1 — Define Job Schema
+
+Standardize all jobs to this format:
+
+```json
+{
+  "id": "uuid-or-timestamp",
+  "type": "string",
+  "payload": {}
+}
+```
+
+---
+
+## Step 2 — Fix `/api/worker/next`
+
+Update this endpoint to:
+
+* Return a real job if one exists
+* Otherwise return `null` or `{}` clearly
+
+Example:
+
+```python
+@app.route("/api/worker/next")
+def get_next_job():
+    job = queue.pop(0) if queue else None
+    return jsonify(job)
+```
+
+---
+
+## Step 3 — Add Enqueue Endpoint
+
+Create a testable endpoint:
+
+```python
+@app.route("/api/worker/enqueue", methods=["POST"])
+def enqueue_job():
+    data = request.json
+    
+    job = {
+        "id": str(time.time()),
+        "type": data.get("type", "test_job"),
+        "payload": data.get("payload", {})
+    }
+    
+    queue.append(job)
+    return jsonify({"status": "queued", "job": job})
+```
+
+---
+
+## Step 4 — Fix Worker Parsing
+
+In `worker.py`, update logic:
+
+```python
+job = fetch_job()
+
+print("RAW JOB:", job)
+
+if not job or "type" not in job:
+    print("No valid job received")
+    continue
+
+job_type = job["type"]
+
+print(f"Received job: {job_type}")
+```
+
+---
+
+## Step 5 — Add Basic Job Handler
+
+```python
+def handle_job(job):
+    job_type = job["type"]
+    payload = job.get("payload", {})
+
+    if job_type == "test_job":
+        print("Running test job:", payload.get("message"))
+
+    elif job_type == "create_post":
+        print("Simulating post creation:", payload)
+
+    else:
+        print("Unknown job type:", job_type)
+```
+
+Call it:
+
+```python
+handle_job(job)
+```
+
+---
+
+## Step 6 — Improve Logging
+
+Ensure logs clearly show:
+
+* RAW response
+* Job type
+* Payload
+* Completion status
+
+---
+
+## Step 7 — Test Flow
+
+Use curl or Postman:
+
+```bash
+curl -X POST https://YOUR-REPL-URL/api/worker/enqueue \
+  -H "Content-Type: application/json" \
+  -d '{"type": "test_job", "payload": {"message": "hello world"}}'
+```
+
+Expected worker output:
+
+```
+RAW JOB: {...}
+Received job: test_job
+Running test job: hello world
+Completed job: test_job
+```
+
+---
+
+## Success Criteria
+
+* Worker no longer logs `"unknown"`
+* Jobs include a valid `type`
+* Payload is accessible and used
+* End-to-end job execution works
+
+---
+
+## Bonus (Optional)
+
+* Add retry logic
+* Add job status tracking (queued → processing → done)
+* Persist queue instead of in-memory list
+* Connect Civic UI post button to enqueue endpoint
+
+---
+
+Focus on making the smallest possible working system first, then expand.

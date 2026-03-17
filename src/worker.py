@@ -92,7 +92,9 @@ def poll_next_job():
         if resp.status_code != 200:
             return None
         data = resp.json()
+        print(f"[WORKER] RAW JOB: {json.dumps(data)}")
         if data.get("job") is None and "id" not in data:
+            print("[WORKER] No valid job received")
             return None
         if "id" in data:
             return data
@@ -100,6 +102,39 @@ def poll_next_job():
     except Exception as e:
         print(f"[WORKER] Poll error: {e}")
         return None
+
+
+def extract_job_type(job):
+    manifest = job.get("executableManifest") or {}
+    job_type = manifest.get("jobType") or job.get("type") or job.get("intent") or "unknown"
+    return job_type
+
+
+def extract_job_payload(job):
+    manifest = job.get("executableManifest") or {}
+    return manifest.get("payload") or {}
+
+
+def handle_job_by_type(job):
+    job_type = extract_job_type(job)
+    payload = extract_job_payload(job)
+
+    print(f"[WORKER] Job type: {job_type}")
+    print(f"[WORKER] Payload: {json.dumps(payload)}")
+
+    if job_type == "test_job":
+        message = payload.get("message", "(no message)")
+        print(f"[WORKER] Running test job: {message}")
+
+    elif job_type == "create_post":
+        print(f"[WORKER] Simulating post creation: {json.dumps(payload)}")
+
+    elif job_type == "send_notification":
+        recipient = payload.get("recipient", "unknown")
+        print(f"[WORKER] Simulating notification to: {recipient}")
+
+    else:
+        print(f"[WORKER] Unknown job type: {job_type} — delegating to manifest executor")
 
 
 def validate_manifest(manifest):
@@ -194,6 +229,11 @@ def attempt_rollback(created_files, job_id):
 
 def run_job(job):
     job_id = job["id"]
+    job_type = extract_job_type(job)
+
+    print(f"[WORKER] Received job: {job_type}")
+    handle_job_by_type(job)
+
     manifest = job.get("executableManifest")
 
     valid, reason = validate_manifest(manifest)
@@ -271,8 +311,9 @@ def run_job(job):
                 print(f"[WORKER] Job {job_id} step {step_id} failed")
                 return
 
-        send_update(job_id, "[MANIFEST] All steps completed successfully.", "Completed")
-        print(f"[WORKER] Job {job_id} completed successfully")
+        completion_log = f"[MANIFEST] All steps completed successfully. Job type: {job_type}"
+        send_update(job_id, completion_log, "Completed")
+        print(f"[WORKER] Completed job: {job_type} (id={job_id})")
 
     finally:
         heartbeat_active = False

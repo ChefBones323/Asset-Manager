@@ -374,5 +374,44 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/worker/enqueue", requireWorker, async (req, res) => {
+    try {
+      const { type = "test_job", payload = {} } = req.body ?? {};
+
+      const executableManifest = {
+        version: 1,
+        jobType: type,
+        payload,
+        requiresRollback: false,
+        steps: [
+          {
+            id: "step-1",
+            type: "shell",
+            command: `echo type=${type}`,
+          },
+        ],
+      };
+
+      const job = await storage.createJob({
+        intent: type,
+        reasoningSummary: `Enqueued ${type} job via worker API`,
+        proposedPlan: [`Execute ${type} job with provided payload`],
+        impactAnalysis: {
+          filesCreated: [],
+          filesModified: [],
+          destructiveChanges: false,
+          estimatedTimeSeconds: 5,
+        },
+        executableManifest,
+      });
+
+      const approved = await storage.approveJob(job.id);
+      return res.json({ status: "queued", job: approved });
+    } catch (error) {
+      console.error("Enqueue error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }

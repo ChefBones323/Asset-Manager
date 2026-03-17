@@ -1,11 +1,21 @@
 import { db } from "./db";
 import { jobs, type Job, type InsertJob } from "@shared/schema";
-import { eq, desc, asc, and, lt, isNotNull } from "drizzle-orm";
+import { eq, desc, asc, and, lt, isNotNull, count, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+
+export interface JobStats {
+  queue_depth: number;
+  busy_workers: number;
+  active_workers: number;
+  jobs_processed_total: number;
+  jobs_failed_total: number;
+  dlq_count: number;
+}
 
 export interface IStorage {
   getJobs(): Promise<Job[]>;
   getJob(id: string): Promise<Job | undefined>;
+  getJobStats(): Promise<JobStats>;
   createJob(job: InsertJob & {
     reasoningSummary: string;
     proposedPlan: string[];
@@ -42,6 +52,44 @@ export class DatabaseStorage implements IStorage {
   async getJob(id: string): Promise<Job | undefined> {
     const [job] = await db.select().from(jobs).where(eq(jobs.id, id));
     return job;
+  }
+
+  async getJobStats(): Promise<JobStats> {
+    const rows = await db
+      .select({ status: jobs.status, cnt: count() })
+      .from(jobs)
+      .groupBy(jobs.status);
+
+    const byStatus: Record<string, number> = {};
+    for (const row of rows) {
+      byStatus[row.status] = Number(row.cnt);
+    }
+
+    const queueDepth = (byStatus["approved"] ?? 0);
+    const busyWorkers = (byStatus["running"] ?? 0) + (byStatus["paused"] ?? 0);
+    const processed = byStatus["completed"] ?? 0;
+    const failed = byStatus["failed"] ?? 0;
+    const dlq = byStatus["escalated"] ?? 0;
+
+    const activeWorkerRows = await db
+      .selectDistinct({ workerId: jobs.workerId })
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.status, "running"),
+          isNotNull(jobs.workerId)
+        )
+      );
+    const activeWorkers = activeWorkerRows.length;
+
+    return {
+      queue_depth: queueDepth,
+      busy_workers: busyWorkers,
+      active_workers: activeWorkers,
+      jobs_processed_total: processed,
+      jobs_failed_total: failed,
+      dlq_count: dlq,
+    };
   }
 
   async createJob(input: InsertJob & {

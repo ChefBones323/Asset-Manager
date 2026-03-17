@@ -1,0 +1,323 @@
+I need you to update this project into a fully working authenticated job pipeline from enqueue -> worker poll -> manifest execution -> completion reporting.
+
+Context:
+- The backend is running on Replit.
+- A Python worker (`worker.py`) runs on my Mac Studio and polls the backend.
+- Auth is enabled.
+- Enqueue is working with Bearer auth.
+- The current issue is that the worker logs jobs as `"unknown"` because the backend returns `intent`, not `type`.
+- Enqueued jobs currently look like this shape:
+
+{
+  "status": "queued",
+  "job": {
+    "id": "08c6b94e-60d3-444e-84cd-7034c679c1e8",
+    "intent": "test_job",
+    "status": "approved",
+    "reasoningSummary": "Enqueued test_job job via worker API",
+    "proposedPlan": ["Execute test_job job with provided payload"],
+    "impactAnalysis": {
+      "filesCreated": [],
+      "filesModified": [],
+      "destructiveChanges": false,
+      "estimatedTimeSeconds": 5
+    },
+    "logs": "",
+    "createdAt": "2026-03-17T23:07:23.019Z",
+    "approvedAt": "2026-03-17T23:07:23.033Z",
+    "completedAt": null,
+    "workerId": null,
+    "leaseExpiresAt": null,
+    "lastHeartbeatAt": null,
+    "destructiveApprovedAt": null,
+    "executableManifest": {
+      "steps": [
+        {
+          "id": "step-1",
+          "type": "shell",
+          "command": "echo type=test_job"
+        }
+      ],
+      "jobType": "test_job",
+      "payload": {
+        "message": "pipeline test"
+      },
+      "version": 1,
+      "requiresRollback": false
+    }
+  }
+}
+
+What I want you to do:
+1. Fix the backend and worker so the system works end to end.
+2. Preserve auth.
+3. Make the worker parse the real backend job shape.
+4. Make the worker execute manifest steps.
+5. Add proper status transitions and reporting.
+6. Add logging that makes debugging easy.
+7. Keep the implementation simple and production-minded.
+8. Do not break existing routes unless necessary.
+
+Required changes
+
+A. Standardize the job object
+Update the backend so each job has a top-level `type` field in addition to `intent`, or make both available consistently.
+Use this standard shape for worker-facing jobs:
+
+{
+  "id": "uuid",
+  "type": "test_job",
+  "intent": "test_job",
+  "status": "queued|leased|processing|completed|failed",
+  "payload": {},
+  "executableManifest": {
+    "version": 1,
+    "jobType": "test_job",
+    "payload": {},
+    "requiresRollback": false,
+    "steps": [
+      {
+        "id": "step-1",
+        "type": "shell",
+        "command": "echo type=test_job"
+      }
+    ]
+  },
+  "createdAt": "...",
+  "approvedAt": "...",
+  "completedAt": null,
+  "workerId": null,
+  "leaseExpiresAt": null,
+  "lastHeartbeatAt": null,
+  "logs": ""
+}
+
+Important:
+- If `intent` already exists, keep it for compatibility.
+- Add `type = intent` if `type` is missing.
+- Also add a top-level `payload`, defaulting to `executableManifest.payload` if needed.
+
+B. Fix `/api/worker/enqueue`
+Keep Bearer auth enforced.
+Make sure this endpoint:
+- validates auth
+- accepts JSON body with `type` and `payload`
+- creates a job with both `type` and `intent`
+- generates an `executableManifest`
+- stores the job in queue/storage
+- returns `{ status: "queued", job: ... }`
+
+If no planner exists, create a simple manifest generator:
+- for `test_job`, return one shell step: `echo type=test_job`
+- include the incoming payload in both top-level `payload` and `executableManifest.payload`
+
+C. Fix `/api/worker/next`
+Keep auth enforced.
+This endpoint should:
+- validate worker auth
+- lease the next approved/queued job
+- mark it as leased or processing
+- set `workerId`
+- set `leaseExpiresAt`
+- set `lastHeartbeatAt`
+- return the actual job object the worker should process
+
+Important:
+- Return the job object directly, not wrapped in an unexpected shape, unless the worker already expects `{ job: ... }`
+- If wrapped, make it consistent and update the worker accordingly
+- If no job is available, return `null` or `{}` consistently
+
+D. Add worker completion/failure endpoints if missing
+Add routes such as:
+- `POST /api/worker/:id/complete`
+- `POST /api/worker/:id/fail`
+- optionally `POST /api/worker/:id/heartbeat`
+
+These should:
+- require auth
+- update status
+- append logs
+- set `completedAt` for completed jobs
+- store failure reason for failed jobs
+- clear or update lease information appropriately
+
+E. Update `worker.py`
+Modify the worker so it can handle the real API response safely.
+
+Requirements:
+1. Add detailed logging:
+   - when polling
+   - raw response body
+   - normalized job object
+   - selected job type
+   - each manifest step before execution
+   - step result
+   - job completion/failure
+
+2. Normalize incoming jobs like this:
+   - if response is `{ "job": {...} }`, unwrap it
+   - `job_type = job.get("type") or job.get("intent") or job.get("executableManifest", {}).get("jobType")`
+   - `payload = job.get("payload") or job.get("executableManifest", {}).get("payload", {})`
+   - treat missing/invalid jobs as “no valid job received”
+
+3. Execute manifest steps
+Support at least these step types:
+- `shell`
+- `log`
+
+Behavior:
+- for `shell`, execute the command on the worker host
+- for `log`, print the message
+
+4. Execution rules
+- Run steps in order
+- Capture stdout/stderr for shell commands
+- If a step fails, mark the job failed
+- If all steps succeed, mark job completed
+
+5. Reporting
+After execution:
+- call the complete endpoint with logs on success
+- call the fail endpoint with logs/error on failure
+
+6. Safety
+- do not use `os.system`
+- use `subprocess.run(..., shell=True, capture_output=True, text=True)`
+- include return codes in logs
+- handle network timeouts and malformed JSON gracefully
+- do not crash the worker loop because of one bad job
+
+F. Improve worker auth handling
+Make sure worker requests send the configured Bearer token on:
+- `/api/worker/next`
+- completion endpoint
+- failure endpoint
+- heartbeat endpoint if used
+
+Use environment variables if available, such as:
+- `WORKER_TOKEN`
+- `API_TOKEN`
+- `WORKER_ID`
+
+If env vars are not already wired, add them clearly and document them.
+
+G. Dashboard / metrics updates
+If the dashboard already has counters for:
+- Workers
+- Busy
+- Queue
+- DLQ
+- Processed
+- Failed
+
+Then update backend stats logic so these numbers reflect reality:
+- Queue = queued/approved jobs not yet leased
+- Busy = leased or processing jobs
+- Processed = completed jobs
+- Failed = failed jobs
+- Workers = active workers with recent heartbeat
+- DLQ = permanently failed jobs if such a concept exists; otherwise keep 0 for now
+
+H. Add a real test path
+Create a minimal happy-path test job flow:
+- enqueue `test_job`
+- worker polls it
+- worker executes `echo type=test_job`
+- worker reports completion
+- processed count increments
+
+I. Keep compatibility
+Do not remove existing fields already used by the UI.
+If current UI expects `intent`, keep it.
+Just make the worker-compatible shape explicit and consistent.
+
+Implementation details
+
+Backend expectations:
+- Keep code clean and modular
+- Add helper functions if needed:
+  - `build_job(type, payload)`
+  - `lease_next_job(worker_id)`
+  - `complete_job(job_id, logs)`
+  - `fail_job(job_id, error, logs)`
+  - `normalize_job(job)`
+
+Worker expectations:
+- Add helper functions:
+  - `fetch_job()`
+  - `normalize_job(job)`
+  - `execute_manifest(manifest)`
+  - `report_complete(job_id, logs)`
+  - `report_failed(job_id, error, logs)`
+
+Please use robust Python patterns and avoid fragile string parsing.
+
+Concrete worker normalization logic
+Use logic equivalent to:
+
+job = response_json.get("job", response_json) if isinstance(response_json, dict) else response_json
+
+if not isinstance(job, dict) or not job:
+    # no valid job
+    return None
+
+manifest = job.get("executableManifest") or {}
+job_type = job.get("type") or job.get("intent") or manifest.get("jobType")
+payload = job.get("payload") or manifest.get("payload") or {}
+job["type"] = job_type
+job["payload"] = payload
+job["executableManifest"] = manifest
+
+if not job_type:
+    # invalid job
+    return None
+
+Manifest execution requirements
+For a shell step:
+- execute the command
+- capture stdout/stderr
+- append results to logs
+- raise failure if return code is non-zero
+
+Example log output style:
+- Polling https://.../api/worker/next
+- RAW JOB RESPONSE: {...}
+- Normalized job id=... type=test_job
+- Executing step step-1 [shell]: echo type=test_job
+- Step step-1 completed rc=0 stdout=...
+- Completed job: test_job
+
+Expected outcome after changes
+When I enqueue:
+
+curl -X POST https://asset-manager-cnharris323.replit.app/api/worker/enqueue \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Paper4321$" \
+  -d '{"type":"test_job","payload":{"message":"pipeline test"}}'
+
+I want the worker logs to show something like:
+
+[time] Worker started
+[time] Polling https://asset-manager-cnharris323.replit.app/api/worker/next
+[time] RAW JOB RESPONSE: {...}
+[time] Normalized job id=08c6... type=test_job
+[time] Executing step step-1 [shell]: echo type=test_job
+[time] Step step-1 completed rc=0 stdout=type=test_job
+[time] Completed job: test_job
+
+And I want the dashboard metrics to reflect:
+- Queue briefly increments then drops
+- Processed increments by 1
+- Failed stays 0
+
+Deliverables
+Please make the code changes directly in the Replit project and then show me:
+
+1. A summary of what files were changed
+2. The final backend job schema
+3. The updated worker contract
+4. Any required environment variables
+5. Exact curl commands to test enqueue and observe success
+6. Any follow-up step needed to connect this to the Compose button later
+
+If parts of the current codebase are inconsistent, choose the smallest coherent architecture that makes the full test pass.

@@ -282,9 +282,12 @@ export async function registerRoutes(
       }
 
       const started = await storage.startJob(job.id, workerId);
+      const manifest = (started?.executableManifest ?? {}) as Record<string, unknown>;
       return res.json({
         ...started,
         status: "running",
+        type: started?.intent ?? (manifest.jobType as string) ?? null,
+        payload: (manifest.payload ?? {}) as Record<string, unknown>,
       });
     } catch (error) {
       console.error("Worker next error:", error);
@@ -370,6 +373,65 @@ export async function registerRoutes(
       return res.json({ status: "updated", job: updated });
     } catch (error) {
       console.error("Worker update error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/worker/:id/complete", requireWorker, async (req, res) => {
+    try {
+      const { logs = "", workerId } = req.body ?? {};
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+
+      if (workerId && job.workerId && job.workerId !== workerId) {
+        return res.status(403).json({ error: "Worker ID mismatch" });
+      }
+
+      if (job.status !== "running" && job.status !== "paused" && job.status !== "escalated") {
+        return res.status(400).json({ error: `Cannot complete job in state: ${job.status}` });
+      }
+
+      const appendedLogs = job.logs ? `${job.logs}\n${logs}` : logs;
+      const updated = await storage.updateRunningJob(req.params.id, appendedLogs, "completed");
+      console.log(`[ROUTES] Job ${req.params.id} completed by worker ${workerId ?? "unknown"}`);
+      return res.json({ status: "completed", job: updated });
+    } catch (error) {
+      console.error("Worker complete error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/worker/:id/fail", requireWorker, async (req, res) => {
+    try {
+      const { logs = "", error: failReason = "", workerId } = req.body ?? {};
+      const job = await storage.getJob(req.params.id);
+      if (!job) return res.status(404).json({ error: "Not found" });
+
+      if (workerId && job.workerId && job.workerId !== workerId) {
+        return res.status(403).json({ error: "Worker ID mismatch" });
+      }
+
+      if (job.status !== "running" && job.status !== "paused" && job.status !== "escalated") {
+        return res.status(400).json({ error: `Cannot fail job in state: ${job.status}` });
+      }
+
+      const failLog = failReason ? `[FAILURE] ${failReason}\n${logs}` : logs;
+      const appendedLogs = job.logs ? `${job.logs}\n${failLog}` : failLog;
+      const updated = await storage.updateRunningJob(req.params.id, appendedLogs, "failed");
+      console.log(`[ROUTES] Job ${req.params.id} failed — ${failReason}`);
+      return res.json({ status: "failed", job: updated });
+    } catch (error) {
+      console.error("Worker fail error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/metrics", async (_req, res) => {
+    try {
+      const stats = await storage.getJobStats();
+      return res.json(stats);
+    } catch (error) {
+      console.error("Metrics error:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
